@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="RoomDefinition" load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://content/room_definition.gd" id="script"]
+[ext_resource type="Script" path="res://content/actor_definition.gd" id="actor_script"]
+[ext_resource type="Resource" path="res://content/actors/mauler.tres" id="mauler"]
+[ext_resource type="Resource" path="res://content/actors/tugger.tres" id="tugger"]
+[ext_resource type="Resource" path="res://content/actors/needle.tres" id="needle"]
+[ext_resource type="Script" path="res://content/item_drop.gd" id="drop_script"]
+[ext_resource type="Resource" path="res://content/items/scrap.tres" id="scrap"]
+
+[sub_resource type="Resource" id="drop_scrap"]
+script = ExtResource("drop_script")
+item = ExtResource("scrap")
+quantity = 4
+
+[resource]
+script = ExtResource("script")
+id = &"containment"
+display_name = "Containment"
+description = "A displacement patrol guards the final corridor. Clear it to reach the signal core."
+kind = 1
+links = Array[StringName]([&"safe_room", &"signal_core"])
+map_column = 4
+map_row = 0
+enemies = Array[ExtResource("actor_script")]([ExtResource("mauler"), ExtResource("tugger"), ExtResource("needle")])
+loot = Array[ExtResource("drop_script")]([SubResource("drop_scrap")])
+strain_cost = 0
+recovery_health = 0
+recovery_strain = 0

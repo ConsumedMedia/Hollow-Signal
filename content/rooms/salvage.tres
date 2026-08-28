@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="RoomDefinition" load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://content/room_definition.gd" id="script"]
+[ext_resource type="Script" path="res://content/item_drop.gd" id="drop_script"]
+[ext_resource type="Resource" path="res://content/items/scrap.tres" id="scrap"]
+[ext_resource type="Resource" path="res://content/items/wafer.tres" id="wafer"]
+[ext_resource type="Resource" path="res://content/items/power_cell.tres" id="power_cell"]
+
+[sub_resource type="Resource" id="drop_scrap"]
+script = ExtResource("drop_script")
+item = ExtResource("scrap")
+quantity = 40
+
+[sub_resource type="Resource" id="drop_wafer"]
+script = ExtResource("drop_script")
+item = ExtResource("wafer")
+quantity = 12
+
+[sub_resource type="Resource" id="drop_power_cell"]
+script = ExtResource("drop_script")
+item = ExtResource("power_cell")
+quantity = 1
+
+[resource]
+script = ExtResource("script")
+id = &"salvage"
+display_name = "Salvage bay"
+description = "An untouched cargo cache contains bulky scrap and data wafers. It may exceed the twelve-slot hold. Inspect it, collect it once, or leave it sealed."
+kind = 2
+links = Array[StringName]([&"junction", &"hazard"])
+map_column = 2
+map_row = 1
+loot = Array[ExtResource("drop_script")]([SubResource("drop_scrap"), SubResource("drop_wafer"), SubResource("drop_power_cell")])
+strain_cost = 0
+recovery_health = 0
+recovery_strain = 0

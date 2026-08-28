@@ -9,6 +9,8 @@ var definition: ActorDefinition
 var side: Team
 var health: int
 var strain: int = 0
+var shaken: bool = false
+var dead: bool = false
 var statuses: Array[StatusState] = []
 var uses: Dictionary[StringName, int] = {}
 
@@ -21,7 +23,11 @@ func _init(actor_id: StringName, actor_definition: ActorDefinition, actor_side: 
 
 
 func is_conscious() -> bool:
-	return health > 0
+	return health > 0 and not dead
+
+
+func is_downed() -> bool:
+	return side == Team.CREW and health == 0 and not dead
 
 
 func get_status(kind: StatusDefinition.Kind) -> StatusState:

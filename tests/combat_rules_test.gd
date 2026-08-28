@@ -16,6 +16,12 @@ func run() -> int:
 	_test_statuses_and_damage()
 	_test_forced_movement()
 	_test_enemy_policy_and_class_replays()
+	_test_vulnerability()
+	_test_shaken_and_power()
+	_test_expedition_carryover()
+	_test_exploration_rules()
+	_test_inventory_and_room_events()
+	_test_full_expedition()
 	if "--self-test-failure" in OS.get_cmdline_user_args():
 		_check(false, "Intentional test-runner failure")
 	print("COMBAT RULES: %d checks, %d failures" % [_checks, _failures])
@@ -377,6 +383,7 @@ func _test_statuses_and_damage() -> void:
 	_check(target.statuses.size() == 1 and target.statuses[0].remaining == 2, "Repeated Scorch refreshes two ticks without stacking damage")
 	state.get_actor(&"crew_2").health = 1
 	_take(state, &"enemy_1", &"maul", &"crew_2", rng)
+	_take(state, &"enemy_1", &"maul", &"crew_2", rng)
 	target.health = 1
 	events = _seek_turn(state, target.id, rng)
 	var dot_index: int = _event_index(events, &"dot_damage")
@@ -598,9 +605,13 @@ func _snapshot(state: CombatState, rng: RandomNumberGenerator) -> Dictionary:
 		for status: StatusState in actor.statuses:
 			statuses.append({"id": status.definition.id, "kind": status.definition.kind, "duration": status.definition.duration,
 				"magnitude": status.definition.magnitude, "remaining": status.remaining, "source": status.source_id, "source_name": status.source_name})
-		actors.append({"id": actor.id, "side": actor.side, "health": actor.health, "strain": actor.strain,
+		actors.append({"id": actor.id, "side": actor.side, "health": actor.health, "strain": actor.strain, "shaken": actor.shaken, "dead": actor.dead,
 			"uses": actor.uses.duplicate(), "statuses": statuses, "definition": _definition_snapshot(actor.definition)})
+	var crew: Array[Dictionary] = []
+	for member: CrewState in state.expedition.crew:
+		crew.append({"id": member.id, "health": member.health, "strain": member.strain, "shaken": member.shaken, "dead": member.dead})
 	return {"actors": actors, "active": state.active_actor_id, "round": state.round_number,
+		"persistent": crew, "power": state.expedition.power, "failed": state.expedition.failed, "battle_active": state.expedition.battle_active,
 		"turn": state.turn_number, "outcome": state.outcome, "rng": rng.state,
 		"crew": state.crew_ranks.duplicate(), "enemy": state.enemy_ranks.duplicate(),
 		"order": state.round_order.duplicate(), "cursor": state.turn_cursor,
@@ -620,6 +631,344 @@ func _definition_snapshot(definition: ActorDefinition) -> Dictionary:
 			"exposed_multiplier": ability.exposed_multiplier, "effects": effects})
 	return {"id": definition.id, "name": definition.display_name, "max_health": definition.max_health,
 		"speed": definition.speed, "abilities": abilities}
+
+
+func _test_vulnerability() -> void:
+	var rng: RandomNumberGenerator = _rng(1729)
+	var state: CombatState = _class_battle(rng)
+	var target: ActorState = state.get_actor(&"crew_1")
+	target.health = 1
+	var events: Array[CombatEvent] = _take(state, &"enemy_1", &"maul", target.id, rng)
+	_check(target.is_downed() and state.get_rank(target.id) == 1 and state.crew_ranks.size() == 4, "Zero HP downs crew without removing their rank")
+	_check(_event_index(events, &"downed") >= 0 and not target.dead, "Downing emits a distinct event, not death")
+	_activate(state, target.id)
+	_assert_rejected(state, _command(state, &"wait"), rng, "Downed actor cannot act")
+	_check(CombatRules.get_legal_actions(state, target.id).is_empty(), "Downed actor has no legal actions")
+	events = _take(state, &"crew_4", &"field_patch", target.id, rng)
+	_check(target.health == 8 and target.is_conscious() and _event_index(events, &"revived") >= 0, "Field patch revives at zero health")
+	_check(state.expedition.get_crew(target.id).health == 8, "Revival synchronizes the persistent individual")
+	target.health = 1
+	_take(state, &"enemy_1", &"maul", target.id, rng)
+	events = _take(state, &"enemy_1", &"maul", target.id, rng)
+	_check(target.dead and state.get_actor(target.id) == null and state.crew_ranks[0] == &"crew_2", "Further damage permanently kills and compacts crew ranks")
+	_check(state.expedition.get_crew(target.id).dead and _event_index(events, &"died") >= 0, "Death remains recorded after removing the combat actor")
+	_activate(state, &"crew_4")
+	_assert_rejected(state, _command(state, &"field_patch", target.id), rng, "Healing cannot resurrect dead crew")
+	state = _class_battle(rng)
+	target = state.get_actor(&"crew_1")
+	target.health = 0
+	var zero_events: Array[CombatEvent] = []
+	CombatRules._damage(state, state.get_actor(&"enemy_1"), target, 0, zero_events)
+	_check(target.is_downed() and not target.dead, "Damage rounded to zero does not kill a downed crew member")
+
+	# A downed ally can be swapped; this must not add an initiative slot.
+	state = _class_battle(rng)
+	state.get_actor(&"crew_2").health = 0
+	var order: Array[StringName] = state.round_order.duplicate()
+	_activate(state, &"crew_1")
+	order = state.round_order.duplicate()
+	events = CombatRules.resolve_action(state, _command(state, &"move", &"crew_2"), rng)
+	_check(state.get_rank(&"crew_2") == 1 and state.round_order == order and state.turn_number >= 1 and events[0].kind == &"moved", "Moving a downed ally preserves the round queue and spends one action (skipped slots also advance the stale-input token)")
+
+	# Revived before its existing slot: acts once. Revived after its slot: next round.
+	for already_passed: bool in [false, true]:
+		state = _class_battle(rng)
+		target = state.get_actor(&"crew_1")
+		target.health = 0
+		state.round_order.assign([&"crew_1", &"crew_4", &"crew_2", &"crew_3", &"enemy_1", &"enemy_2", &"enemy_3", &"enemy_4"] if already_passed else [&"crew_4", &"crew_1", &"crew_2", &"crew_3", &"enemy_1", &"enemy_2", &"enemy_3", &"enemy_4"])
+		state.turn_cursor = 1 if already_passed else 0
+		state.active_actor_id = &"crew_4"
+		CombatRules.resolve_action(state, _command(state, &"field_patch", target.id), rng)
+		var actions: int = 0
+		while state.round_number == 1:
+			if state.active_actor_id == target.id:
+				actions += 1
+			CombatRules.resolve_action(state, _command(state, &"wait"), rng)
+		_check(actions == (0 if already_passed else 1), "Revival respects already-used initiative slot: %s" % already_passed)
+
+	# DOT continues on a downed actor, including slots in subsequent rounds.
+	state = _class_battle(rng)
+	target = state.get_actor(&"crew_1")
+	target.health = 1
+	target.statuses.append(StatusState.new(ContentCatalogue.TECHNICIAN.abilities[0].effects[0].status, state.get_actor(&"enemy_1")))
+	var downed_seen: bool = false
+	var died_seen: bool = false
+	for index: int in range(24):
+		if state.outcome != &"ongoing" or target.dead:
+			break
+		events = CombatRules.resolve_action(state, _command(state, &"wait"), rng)
+		downed_seen = downed_seen or _event_index(events, &"downed") >= 0
+		died_seen = died_seen or _event_index(events, &"died") >= 0
+		_check(state.active_actor_id != target.id or target.is_conscious(), "DOT-downed actor is never offered input")
+	_check(downed_seen and died_seen and target.dead, "Two Scorch ticks down then kill crew across rounds")
+
+	state = _battle(rng, 2, 1)
+	state.get_actor(&"crew_2").health = 0
+	state.get_actor(&"enemy_1").health = 1
+	_take(state, &"crew_1", &"strike", &"enemy_1", rng)
+	_check(state.outcome == &"victory" and state.get_actor(&"crew_2").health == 1 and state.expedition.get_crew(&"crew_2").health == 1, "Downed victory survivors recover to one HP exactly once")
+	state = _battle(rng, 2, 1)
+	state.get_actor(&"crew_1").health = 0
+	state.get_actor(&"crew_2").health = 1
+	events = _take(state, &"enemy_1", &"strike", &"crew_2", rng)
+	_check(state.outcome == &"defeat" and state.expedition.failed and state.crew_ranks.is_empty(), "No conscious crew ends the expedition immediately")
+	_check(state.expedition.crew[0].dead and state.expedition.crew[1].dead, "Defeat loses every deployed crew member, including downed crew")
+	_assert_rejected(state, _command(state, &"wait"), rng, "Terminal defeat cannot continue")
+	var saved_rng: int = rng.state
+	_check(CombatRules.create_battle([], ContentCatalogue.enemy_party(), rng, state.expedition) == null and rng.state == saved_rng, "Failed expedition cannot restart its dead crew")
+
+	# Both sides eliminated in one action resolves as defeat, not victory.
+	state = _battle(rng, 1, 1)
+	var ability: AbilityDefinition = state.get_actor(&"crew_1").definition.abilities[0]
+	state.get_actor(&"crew_1").health = 0
+	state.get_actor(&"enemy_1").health = 0
+	var terminal_events: Array[CombatEvent] = []
+	CombatRules._finish_outcome(state, terminal_events)
+	_check(state.outcome == &"defeat" and state.expedition.get_crew(&"crew_1").dead and ability.damage_max > 0, "Simultaneous elimination resolves as defeat")
+
+
+func _test_shaken_and_power() -> void:
+	var rng: RandomNumberGenerator = _rng(71)
+	var state: CombatState = _class_battle(rng, true)
+	var target: ActorState = state.get_actor(&"crew_3")
+	target.strain = 99
+	var events: Array[CombatEvent] = _take(state, &"enemy_3", &"signal_burst", target.id, rng)
+	_check(target.strain == 100 and target.shaken and _event_index(events, &"shaken") >= 0, "At 100 strain Shaken applies and emits an event")
+	for strain_value: int in [100, 99, 50, 49, 0]:
+		_check(CombatRules.shaken_after(strain_value, true) == (strain_value >= 50), "Shaken hysteresis at strain %d" % strain_value)
+	_check(not CombatRules.shaken_after(99, false), "Unshaken crew do not acquire Shaken below 100")
+	target.strain = 70
+	_take(state, &"crew_4", &"stabilize", target.id, rng)
+	_check(target.strain == 50 and target.shaken, "Medic reaching exactly 50 does not clear Shaken")
+	events = _take(state, &"crew_4", &"stabilize", target.id, rng)
+	_check(target.strain == 30 and not target.shaken and _event_index(events, &"shaken_cleared") >= 0, "Medic reducing below 50 clears Shaken")
+	_check(state.expedition.get_crew(target.id).strain == 30 and not state.expedition.get_crew(target.id).shaken, "Strain and Shaken persist together, including clearing")
+
+	state = _class_battle(rng)
+	var source: ActorState = state.get_actor(&"crew_3")
+	target = state.get_actor(&"enemy_1")
+	var ability: AbilityDefinition = source.definition.abilities[1]
+	source.shaken = true
+	target.statuses.append(StatusState.new(ContentCatalogue.TECHNICIAN.abilities[1].effects[0].status, source))
+	target.statuses.append(StatusState.new(ContentCatalogue.BREACHER.abilities[1].effects[0].status, target))
+	_check(CombatRules.adjusted_damage(target, ability, 7, source, true) == 5, "Shaken, Overcharge, Exposed and protection multiply before one floor")
+	_check(CombatRules.adjusted_damage(target, source.definition.abilities[0], 6, source) == 2, "Shaken applies to ordinary damaging abilities")
+	_activate(state, source.id)
+	for action: StringName in [&"wait", &"move"]:
+		var invalid: ActionCommand = _command(state, action, &"crew_2" if action == &"move" else &"")
+		invalid.overcharge = true
+		_assert_rejected(state, invalid, rng, "Overcharge rejects " + String(action))
+	_activate(state, &"crew_4")
+	var support: ActionCommand = _command(state, &"field_patch", &"crew_1")
+	support.overcharge = true
+	_assert_rejected(state, support, rng, "Overcharge rejects healing")
+	_activate(state, &"enemy_1")
+	var enemy: ActionCommand = _command(state, &"maul", &"crew_1")
+	enemy.overcharge = true
+	_assert_rejected(state, enemy, rng, "Enemies cannot spend shared crew power")
+	_activate(state, source.id)
+	state.expedition.power = 9
+	var charged: ActionCommand = _command(state, &"exploit", target.id)
+	charged.overcharge = true
+	_assert_rejected(state, charged, rng, "Insufficient power")
+	state.expedition.power = 10
+	var hp: int = target.health
+	var expected_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	expected_rng.state = rng.state
+	var expected: int = CombatRules.adjusted_damage(target, ability, expected_rng.randi_range(ability.damage_min, ability.damage_max), source, true)
+	events = CombatRules.resolve_action(state, charged, rng)
+	_check(state.expedition.power == 0 and target.health == hp - expected, "Exactly 10 power buys the displayed Overcharge damage and can reach zero")
+	_check(events[0].kind == &"power_spent" and events[0].power_after == 0 and events[1].kind == &"damage", "Power event precedes damage and holds a value snapshot")
+	_assert_rejected(state, charged, rng, "Repeated Overcharge cannot spend power twice")
+	_check(state.outcome == &"ongoing", "Zero power does not automatically end a battle")
+	var snapshot: Dictionary = _snapshot(state, rng)
+	_check(not CombatRules.traverse_test_corridor(state.expedition) and _snapshot(state, rng) == snapshot, "Traversal cannot spend power or add strain during combat")
+	for boundary: int in [100, 50, 49, 25, 24, 0]:
+		_check(CombatRules.room_strain(boundary) == (0 if boundary >= 50 else (2 if boundary >= 25 else 5)), "Room strain threshold at power %d" % boundary)
+	for before_power: int in [55, 54, 30, 29, 5, 0]:
+		var expedition: ExpeditionState = CombatRules.new_expedition(ContentCatalogue.crew_party())
+		expedition.power = before_power
+		expedition.crew[0].strain = 99
+		_check(CombatRules.traverse_test_corridor(expedition) and expedition.power == maxi(0, before_power - 5), "Corridor spends five with zero clamp from %d" % before_power)
+		_check(expedition.crew[1].strain == CombatRules.room_strain(expedition.power), "Room pressure uses power AFTER traversal")
+		_check(expedition.crew[0].shaken == (expedition.power < 50), "Low-power entry can cross Shaken threshold")
+	_check(CombatRules.BALANCE.is_valid() and CombatRules.new_expedition(ContentCatalogue.crew_party()).power == 100, "Valid balance starts expeditions at 100 power")
+	var bad: CombatBalance = CombatRules.BALANCE.duplicate() as CombatBalance
+	bad.overcharge_cost = 0
+	_check(not bad.is_valid(), "Invalid Overcharge balance rejected")
+
+
+func _test_expedition_carryover() -> void:
+	var rng: RandomNumberGenerator = _rng(29)
+	var state: CombatState = _class_battle(rng)
+	var expedition: ExpeditionState = state.expedition
+	# Keep C1 alive, lose C2, retain Shaken at 70 on C3, and recover downed C4.
+	state.get_actor(&"crew_2").health = 0
+	_take(state, &"enemy_1", &"maul", &"crew_2", rng)
+	state.get_actor(&"crew_3").strain = 70
+	state.get_actor(&"crew_3").shaken = true
+	state.get_actor(&"crew_4").health = 0
+	expedition.power = 30
+	while state.outcome == &"ongoing":
+		var victim: ActorState = state.actor_at(ActorState.Team.ENEMY, 1)
+		victim.health = 1
+		_take(state, &"crew_1", &"breach_strike", victim.id, rng)
+	_check(state.outcome == &"victory" and not expedition.battle_active, "Victory releases the expedition for the next battle")
+	var health: int = expedition.get_crew(&"crew_1").health
+	CombatRules.traverse_test_corridor(expedition)
+	var next: CombatState = CombatRules.create_battle(ContentCatalogue.crew_party(), ContentCatalogue.enemy_party(), rng, expedition)
+	_check(next != null and next.expedition == expedition and next.crew_ranks == [&"crew_1", &"crew_3", &"crew_4"], "Next battle preserves IDs, formation and death without resurrecting the lost crew")
+	_check(next.get_actor(&"crew_1").health == health and next.get_actor(&"crew_4").health == 1, "Survivor wounds and victory recovery carry into the next battle")
+	_check(next.get_actor(&"crew_3").strain == 72 and next.get_actor(&"crew_3").shaken and expedition.power == 25, "Strain, Shaken hysteresis and spent power persist between battles")
+	var clean_temporary: bool = true
+	for actor: ActorState in next.actors:
+		clean_temporary = clean_temporary and actor.uses.is_empty() and actor.statuses.is_empty()
+	_check(clean_temporary, "New battle clears temporary effects and use limits, not persistent crew state")
+	var before: Dictionary = _snapshot(next, rng)
+	_check(CombatRules.create_battle([], ContentCatalogue.enemy_party(), rng, expedition) == null and _snapshot(next, rng) == before, "One expedition cannot be used by two active battles")
+	var fresh: CombatState = _class_battle(_rng(29))
+	_check(fresh.crew_ranks.size() == 4 and fresh.get_actor(&"crew_3").strain == 0 and fresh.expedition.power == 100, "Explicit fresh expedition is independent from the old dead crew records")
+	_check(expedition.get_crew(&"crew_2").dead and expedition.get_crew(&"crew_3").shaken, "Creating a fresh test expedition never edits the prior expedition")
+
+
+func _test_exploration_rules() -> void:
+	var ship: ShipDefinition = ContentCatalogue.SHIP
+	_check(ship.is_valid() and ship.rooms.size() == 8, "Authored eight-room graph validates connected bidirectional links and content")
+	var reachable: Array[StringName] = [ship.entry_id]
+	var cursor: int = 0
+	while cursor < reachable.size():
+		for neighbor: StringName in ship.get_room(reachable[cursor]).links:
+			if neighbor not in [&"salvage", &"hazard"] and neighbor not in reachable:
+				reachable.append(neighbor)
+		cursor += 1
+	_check(ship.boss_id in reachable and &"salvage" not in reachable, "Boss route is reachable without the optional salvage/hazard branch")
+	var state: ExpeditionState = ExpeditionRules.create(ship, ContentCatalogue.crew_party())
+	_check(state.current_room == ship.entry_id and state.rooms[ship.entry_id].resolved and state.inventory.capacity == 12, "New expedition starts in resolved airlock with twelve slots")
+	_check(state.inventory.stacks.size() == 1 and state.inventory.stacks[0].quantity == 2, "Two starting power cells share one stack")
+	var before_power: int = state.power
+	_check(not ExpeditionRules.begin_travel(state, ship.boss_id) and state.power == before_power and state.destination.is_empty(), "Nonadjacent travel does not mutate state")
+	state.power = 29
+	_check(ExpeditionRules.begin_travel(state, &"receiving") and state.power == 24 and state.current_room == &"airlock", "Travel charges five once before the corridor presentation")
+	_check(state.crew[0].strain == 0 and not ExpeditionRules.begin_travel(state, &"receiving"), "Repeated travel during a corridor is rejected and room strain waits for arrival")
+	_check(not ExpeditionRules.use_power_cell(state, 0), "Power cells cannot be used while traversing")
+	_check(ExpeditionRules.arrive(state) and state.current_room == &"receiving" and state.crew[0].strain == 5, "Arrival applies low-power strain and marks the destination visited")
+	_check(not ExpeditionRules.arrive(state) and state.crew[0].strain == 5, "Duplicate arrival cannot add strain twice")
+	_check(not ExpeditionRules.begin_travel(state, &"junction"), "Unresolved combat room cannot be bypassed")
+	var room: RoomDefinition = ExpeditionRules.begin_encounter(state)
+	_check(room != null and ExpeditionRules.begin_encounter(state) == null, "Encounter entry reserves the current room exactly once")
+	var rng: RandomNumberGenerator = _rng(state.rooms[room.id].encounter_seed)
+	var battle: CombatState = CombatRules.create_battle([], room.enemies, rng, state)
+	_check(battle.expedition == state and battle.get_actor(&"crew_1").strain == 5 and state.power == 24, "Combat entry receives the same expedition, crew strain and power")
+	_check(not ExpeditionRules.use_power_cell(state, 0) and not ExpeditionRules.finish_encounter(state, battle), "Power cells and battle return reject active combat")
+	for action: int in range(400):
+		if battle.outcome != &"ongoing":
+			break
+		var command: ActionCommand = EnemyPolicy.choose_action(battle)
+		CombatRules.resolve_action(battle, command, rng)
+	_check(ExpeditionRules.finish_encounter(state, battle) and state.rooms[room.id].resolved, "Combat victory resolves the room and returns survivor state")
+	var cargo: int = _cargo_count(state)
+	_check(not ExpeditionRules.finish_encounter(state, battle) and _cargo_count(state) == cargo, "Duplicate battle return does not duplicate rewards")
+	_check(ExpeditionRules.begin_travel(state, &"airlock") and ExpeditionRules.arrive(state), "Backtracking through cleared rooms is allowed")
+	var prior_power: int = state.power
+	_check(ExpeditionRules.begin_travel(state, &"receiving") and ExpeditionRules.arrive(state), "Revisiting a cleared encounter is allowed")
+	_check(state.power == maxi(0, prior_power - 5) and ExpeditionRules.begin_encounter(state) == null and _cargo_count(state) == cargo, "Backtracking consumes power without regenerating fights or loot")
+	ExpeditionRules.begin_travel(state, &"junction")
+	ExpeditionRules.arrive(state)
+	ExpeditionRules.begin_encounter(state)
+	_check(not ExpeditionRules.finish_encounter(state, battle) and not state.rooms[&"junction"].resolved, "A stale battle result cannot resolve a different room")
+
+
+func _test_inventory_and_room_events() -> void:
+	var state: ExpeditionState = ExpeditionRules.create(ContentCatalogue.SHIP, ContentCatalogue.crew_party())
+	state.power = 90
+	var cells: ItemDefinition = state.inventory.stacks[0].definition
+	_check(ExpeditionRules.use_power_cell(state, 0) and state.power == 100 and state.inventory.stacks[0].quantity == 1, "Outside-combat cell restores 25 with cap 100 and consumes one")
+	_check(not ExpeditionRules.use_power_cell(state, 0) and state.inventory.stacks[0].quantity == 1, "A cell cannot be wasted at full power")
+	var other: InventoryState = InventoryState.new()
+	other.add(cells, 2)
+	state.power = 0
+	ExpeditionRules.use_power_cell(state, 0)
+	_check(other.stacks[0].quantity == 2 and state.inventory.stacks.is_empty() and cells.max_stack == 3, "Shared item Resources never share mutable stack quantities")
+
+	state.current_room = &"salvage"
+	state.rooms[&"salvage"].visited = true
+	_check(ExpeditionRules.inspect(state, &"accept"), "Salvage collection resolves its authored event")
+	_check(state.inventory.stacks.size() == 12 and not state.pending_loot.is_empty(), "Oversized cargo fills exactly twelve slots and retains explicit pending loot")
+	var count: int = _cargo_count(state)
+	_check(not ExpeditionRules.inspect(state, &"accept") and _cargo_count(state) == count, "Repeated salvage selection never duplicates loot")
+	_check(not ExpeditionRules.begin_travel(state, &"hazard"), "Travel is blocked while overflow needs a keep/discard choice")
+	var incoming: ItemStack = state.pending_loot[0]
+	var pending_before: int = incoming.quantity
+	_check(ExpeditionRules.discard_slot(state, 0) and (state.pending_loot.is_empty() or state.pending_loot[0].quantity < pending_before), "Discarding a stored stack allows incoming cargo into the freed slot")
+	while not state.pending_loot.is_empty():
+		_check(ExpeditionRules.discard_pending(state), "Explicitly leaving incoming cargo resolves the overflow")
+	_check(state.inventory.stacks.size() <= 12 and state.rooms[&"salvage"].resolved, "Overflow decision cannot create extra slots or reopen the resolved event")
+	count = _cargo_count(state)
+	_check(not ExpeditionRules.discard_pending(state) and not ExpeditionRules.discard_slot(state, 99) and _cargo_count(state) == count, "Invalid discard leaves cargo unchanged")
+
+	state.current_room = &"hazard"
+	state.crew[0].strain = 95
+	_check(ExpeditionRules.inspect(state, &"accept") and state.crew[0].strain == 100 and state.crew[0].shaken, "Hazard choice adds authored strain and can trigger Shaken")
+	count = _cargo_count(state)
+	_check(not ExpeditionRules.inspect(state, &"accept") and _cargo_count(state) == count, "Hazard cannot be harvested repeatedly")
+	while not state.pending_loot.is_empty():
+		ExpeditionRules.discard_pending(state)
+	state.current_room = &"safe_room"
+	state.crew[0].health = 1
+	state.crew[0].strain = 70
+	state.crew[0].shaken = true
+	state.crew[1].dead = true
+	state.crew[1].health = 0
+	_check(ExpeditionRules.inspect(state, &"accept") and state.crew[0].health == 13 and state.crew[0].strain == 40 and not state.crew[0].shaken, "Safe room applies one authored rest and clears Shaken below 50")
+	_check(state.crew[1].dead and state.crew[1].health == 0 and not ExpeditionRules.inspect(state, &"accept"), "Safe room never resurrects the dead or grants repeated recovery")
+	state = ExpeditionRules.create(ContentCatalogue.SHIP, ContentCatalogue.crew_party())
+	state.current_room = &"hazard"
+	count = _cargo_count(state)
+	_check(ExpeditionRules.inspect(state, &"leave") and state.crew[0].strain == 0 and _cargo_count(state) == count, "Sealing the hazard resolves it without strain or loot")
+	_check(not ExpeditionRules.inspect(state, &"accept"), "A skipped event cannot be collected on a revisit")
+
+
+func _test_full_expedition() -> void:
+	var state: ExpeditionState = ExpeditionRules.create(ContentCatalogue.SHIP, ContentCatalogue.crew_party())
+	for destination: StringName in [&"receiving", &"junction", &"safe_room", &"containment", &"signal_core"]:
+		if state.failed:
+			break
+		if state.power <= 75:
+			for index: int in range(state.inventory.stacks.size()):
+				if state.inventory.stacks[index].definition.power_restored > 0:
+					ExpeditionRules.use_power_cell(state, index)
+					break
+		_check(ExpeditionRules.begin_travel(state, destination) and ExpeditionRules.arrive(state), "Natural expedition reaches " + String(destination))
+		var definition: RoomDefinition = state.ship.get_room(destination)
+		if definition.kind == RoomDefinition.Kind.SAFE:
+			ExpeditionRules.inspect(state, &"accept")
+			continue
+		var room: RoomDefinition = ExpeditionRules.begin_encounter(state)
+		var rng: RandomNumberGenerator = _rng(state.rooms[destination].encounter_seed)
+		var battle: CombatState = CombatRules.create_battle([], room.enemies, rng, state)
+		for action: int in range(400):
+			if battle.outcome != &"ongoing":
+				break
+			var command: ActionCommand = EnemyPolicy.choose_action(battle)
+			if command.action_id == &"wait":
+				for candidate: ActionCommand in CombatRules.get_legal_actions(battle, battle.active_actor_id):
+					if candidate.action_id == &"move":
+						command = candidate
+						break
+			CombatRules.resolve_action(battle, command, rng)
+		_check(battle.outcome == &"victory", "Natural expedition wins " + String(destination))
+		_check(ExpeditionRules.finish_encounter(state, battle), "Battle resolution returns to " + String(destination))
+	_check(state.boss_cleared and not state.failed and state.current_room == &"signal_core", "Authored expedition reaches and clears the single-rank boss placeholder")
+	_check(not state.rooms[&"salvage"].visited and not state.rooms[&"hazard"].visited, "Successful main route does not require the optional branch")
+
+
+func _cargo_count(state: ExpeditionState) -> int:
+	var total: int = 0
+	for stack: ItemStack in state.inventory.stacks:
+		total += stack.quantity
+	for stack: ItemStack in state.pending_loot:
+		total += stack.quantity
+	return total
 
 
 func _check(condition: bool, description: String) -> void:

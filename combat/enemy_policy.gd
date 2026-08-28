@@ -17,7 +17,7 @@ static func choose_action(state: CombatState) -> ActionCommand:
 
 
 static func _key(command: ActionCommand) -> String:
-	return String(command.action_id) + ":" + (String(command.target_ids[0]) if not command.target_ids.is_empty() else "")
+	return String(command.action_id) + ":" + (String(command.target_ids[0]) if not command.target_ids.is_empty() else "") + str(command.overcharge)
 
 
 static func _score(state: CombatState, command: ActionCommand) -> float:
@@ -28,7 +28,7 @@ static func _score(state: CombatState, command: ActionCommand) -> float:
 	var actor: ActorState = state.get_actor(command.actor_id)
 	var target: ActorState = state.get_actor(command.target_ids[0])
 	var ability: AbilityDefinition = actor.definition.get_ability(command.action_id)
-	var score: float = float(CombatRules.adjusted_damage(target, ability, ability.damage_max))
+	var score: float = float(CombatRules.adjusted_damage(target, ability, ability.damage_max, actor, command.overcharge))
 	for effect: EffectDefinition in ability.effects:
 		var recipient: ActorState = actor if effect.on_actor else target
 		match effect.kind:

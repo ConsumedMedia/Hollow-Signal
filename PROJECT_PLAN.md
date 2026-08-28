@@ -2,7 +2,7 @@
 
 ## Specification and scope
 
-The user supplied the full plan on 2026-08-27 and then authorized milestone 1. On 2026-08-28 the user reported "all is working" and requested milestone 2. Operational requirements are recorded in [SPECIFICATION.md](SPECIFICATION.md); the original user-supplied plan remains authoritative. Embedded example prompts are not authorization to start every milestone. Milestone 3 followed the GitHub upload. After the Close strike diagnostic, the user said "ok move on to the next milestone", authorizing milestone 4. Milestones 5–13 have not been requested.
+The user supplied the full plan on 2026-08-27 and subsequently authorized milestones 1–5. Milestone 4 received general playtest acceptance. Completed work through f6ad903 was uploaded before milestone 5. While final M5 checks were blocked by the approval service, the user explicitly requested milestone 6. Operational requirements are in SPECIFICATION.md; the supplied plan remains authoritative. Milestones 7–13 have not been requested.
 
 ## Required approach
 
@@ -30,7 +30,7 @@ Repository: [ConsumedMedia/Hollow-Signal](https://github.com/ConsumedMedia/Hollo
 
 1. Milestone 4 received general user playtest acceptance on 2026-08-28; individual README.md checks were not separately reported. Retain those checks for regression testing.
 2. Fix reported problems before proceeding. The earlier Close strike observation was not reproduced; its tests remain, and the user authorized continuing without supplying a screenshot. Do not claim a confirmed fix for that report.
-3. Begin milestone 5 (crew vulnerability and shared power) only when explicitly requested.
+3. M6 and the reported room Resource fix pass import, rules and scene checks. The user reported general success and requested GitHub submission on 2026-08-28. Submit the verified M5/M6 checkpoint, retain manual regressions, and await explicit milestone 7 authorization.
 
 ## Milestone 1 — Project setup
 
@@ -74,19 +74,21 @@ Delivered: four class Resources with twelve skills; five original enemy archetyp
 
 ## Milestone 5 — Crew vulnerability and shared power
 
-Status: not started.
+Status: implemented; current combined M5/M6 checks pass: import, 287 rules, 517 headless scene and 744 rendered scene checks. Both negative runner self-tests exit 1 as required. Earlier approval-service blockers are resolved for these runs. Included in the user-authorized M5/M6 GitHub submission; a separate M5 manual drill was not reported. See PROGRESS.md.
 
-Implement specified downed/death rules, persistent strain, Shaken, shared power, and Overcharge. Prominent explanations; all thresholds and multipliers in balance data.
+Implemented specified downed/death rules, persistent strain, Shaken, shared power, and Overcharge. Prominent explanations; all thresholds and multipliers in balance data. Minimal in-memory crew/expedition records demonstrate carryover through successive test battles, with explicit fresh reset and a vulnerability drill. No campaign/save system.
 
 Acceptance: healing revives downed crew; subsequent damage can kill; no conscious crew causes defeat; Shaken applies at 100 and clears below 50; no overspending power; presentation settings cannot change outcomes.
 
 ## Milestone 6 — Ship exploration
 
-Status: not started.
+Status: complete with general user playtest acceptance on 2026-08-28 after fixing four room Resource declaration orders and corridor-arrival keyboard focus. Import, 287 rules, 517 headless scene and 744 rendered scene checks pass, plus direct expedition startup. Individual manual checks were not separately reported. User requested GitHub submission; M7 remains unauthorized.
 
 Connected authored eight-room graph, short side-scrolling corridors, combat/salvage/hazard/safe/boss-placeholder rooms and optional branch. Room-state tracking, traversal power, twelve-slot inventory, power cells, inspection choices. No procedural generation or platforming.
 
 Acceptance: boss reachable; events resolve once; no backtracking reward duplication; clear overflow keep/discard decision; crew and expedition state persist across combat transitions.
+
+Delivered: explicit ship/room/item Resources; separate room/inventory runtime records; main route plus optional salvage/hazard branch; native scrolling corridor with shared skip/arrival path; once-only inspection/combat rewards; confirmed overflow choices; power cells; existing battle scene embedded under the exploration owner with shared expedition state and terminal return. Extended rules and GUI tests pass, including the main-route simulation. README contains exact expected playtest steps; PROGRESS.md records actual commands, results and remaining manual checks.
 
 ## Milestone 7 — Persistent hub and complete game loop
 

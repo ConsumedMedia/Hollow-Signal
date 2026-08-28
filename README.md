@@ -1,6 +1,8 @@
 # Hollow Signal
 
-Milestone 4: command a Breacher, Technician, Ranger and Medic, with three abilities each, against two test patrols covering five enemy archetypes. Healing, protection, Exposed, Scorch, strain changes and forced movement use shared rules. **There is no roster, expedition, permanent loss, persistent strain, Shaken, power or saving yet.** New Game still opens the placeholder hub.
+Milestone 6 is implemented: an authored eight-room ship, short corridor transitions, once-only room events, a twelve-slot inventory, power cells and embedded battles sharing expedition state. **Godot import, 287 rules checks, 517 headless scene checks and 744 rendered scene checks pass after the room Resource fix.** The user reported general playtest success; individual manual checks were not separately reported. Exact commands, results and limitations are in PROGRESS.md.
+
+New Game opens the placeholder hub; **Explore Ship** starts a fresh in-memory expedition. The separate **Battle Test** remains available. No persistent roster, campaign rewards, retreat mechanic or disk saving yet. Ending a test or closing the app abandons its state; hub persistence and saves arrive in milestones 7–8.
 
 ## Open the project in Godot
 
@@ -45,7 +47,51 @@ Orange outlines show keyboard focus. The first useful button is focused on every
 
 The Input Map defines `ui_accept`, `ui_cancel`, and `toggle_fullscreen`. Tab and arrow navigation use Godot's native UI actions. Select an attack or Move, then click a labelled TARGET or SWAP card. Wait immediately spends the current actor's action. There are no extra combat hotkeys yet.
 
-## Exact milestone 4 playtest
+## Exact milestone 6 playtest
+
+Use **Godot 4.7.2 Standard**. Import and automated checks now pass; the following physical playtest remains yours to verify. For the reported Resource error, stop the old game with F8, wait for the editor's filesystem rescan and clear old Output/Debugger messages before F5. Stop on any new error and send its exact message.
+
+1. Open the pinned editor, press **F8**, then **F5 → New Game → Explore Ship**. Expected: Airlock is HERE, eight rooms are visible, four healthy crew are listed, power is **100**, and two power cells occupy one of **12 slots**.
+2. Click **Receiving**. Expected: a short horizontal corridor animation, **95 power**, all travel locked during the transition. **Skip corridor animation** should arrive once without another cost. Unconnected rooms cannot be chosen.
+3. Click **Engage patrol**. Expected: the existing battle interface appears with the expedition crew and power; the isolated test's Fresh expedition, patrol switch and drill buttons are hidden. Win using the class skills. **Return to room** is enabled only after the outcome. Expected on return: wounds, strain, Shaken, deaths and power match the resolved fight, the room is CLEARED, and its loot is added once.
+4. Travel back to **Airlock**, then back to **Receiving**. Expected: each corridor costs 5, but the cleared fight and loot do not regenerate. At power **50+** entry adds 0 strain, **25–49** adds 2, and **below 25** adds 5, calculated after the travel cost. Zero power does not force defeat.
+5. In any room outside combat, click the **Power cell** stack, then **Use selected power cell**. Expected: restore **25**, capped at 100, consume one cell. At full power it is disabled. Cells cannot be used during a corridor or a fight.
+6. Clear **Junction**, then take the optional **Salvage bay** branch. Click **Collect cache**. Expected: the hold fills to twelve slots and HOLD FULL lists the remaining cargo; nothing silently vanishes, and travel locks. Select a stored stack → **Discard selected stack…**, review the quantity and confirm to free space for incoming cargo. Alternatively **Leave incoming cargo…** explicitly discards the pending quantity. Cancel must change nothing. Resolve all pending cargo before travelling.
+7. Continue to **Pressure breach**. **Search / +12 strain** gives its cargo once and adds 12 strain to every surviving crew member. **Seal / no loot** instead resolves it without strain or loot. Revisit: neither option may regenerate the event. A separate fresh expedition is needed to try the other choice.
+8. Backtrack to **Junction → Safe room**. **Rest once** restores **12 HP** and reduces **30 strain**, with normal caps; it never revives dead crew. Repeated visits give no second rest. Continue through **Containment → Signal core**, winning each encounter. Expected: the single Relay Bulwark boss placeholder can be cleared and the summary says **BOSS PLACEHOLDER CLEARED**. No final narrative/reward campaign is implemented yet.
+9. In a separate fresh expedition, Wait through a fight to lose. Expected: all deployed crew are lost; returning displays EXPEDITION FAILED and further travel/items are disabled. **End test / abandon to hub** is an explicit test reset path, not the milestone 7 retreat/reward system.
+10. Repeat at **1280×720** and **1920×1080**. Check room links, room choices, all twelve inventory slots, overflow text, confirmation dialog, battle Return to room, and keyboard focus. **ESC** abandons only when outside battle/corridor/overflow; **F11** remains fullscreen. No campaign data is saved.
+
+The main route is **Airlock → Receiving → Junction → Safe room → Containment → Signal core**. The optional branch is **Junction → Salvage bay → Pressure breach**. Room Resources live in `res://content/rooms/`, with the explicit graph in `res://content/ship.tres`. See EXPLORATION_RULES.md for ownership and transaction rules.
+
+## Exact milestone 5 playtest
+
+Use the pinned **Godot 4.7.2 Standard** editor above. Press **F8** to stop an old run, then **F5 → Battle Test**. To run the scene directly, open `res://scenes/battle_test.tscn` and press **F6**. Repeat the checks at **1280×720** and **1920×1080** using the resolution commands below.
+
+### Revival and Overcharge drill
+
+1. Click **Vulnerability drill**. This intentionally starts NEW test data, not a normal expedition: **seed 20**, **C4 Medic acts first**, **C1 Breacher has 0 HP / DOWNED**, **C3 Ranger has 100 strain / SHAKEN**, and **10 power** remains.
+2. Select **Field patch → C1**. C1 returns to **8 HP**, DOWNED disappears and the Medic spends one of two healing uses. Overcharge is disabled while Field patch is selected.
+3. The revived **C1 Breacher** gets its unused turn: choose **Wait**. Then **C2 Technician → Wait**. Let the enemy turn finish. On **C3 Ranger's turn**, select **Covering shot** and turn **Overcharge ON**. The target preview includes both Shaken and Overcharge: **6–9** damage against an unprotected, sufficiently healthy enemy instead of the Shaken-only **4–6**. Toggling alone must not spend power.
+4. Click **E4 Needle Turret**. Power falls from **10 to 0**, the attack resolves once, and the next turn begins. Overcharge becomes unavailable at zero power; ordinary actions and Wait still work. Double-clicking must not spend another charge or grant another action.
+5. Click **Fresh expedition**. The default seed is restored (1729 unless you changed it in the Inspector), crew are full-health with zero strain, and power is 100. This is an explicit test reset, not a resurrection of the prior crew.
+
+### Death and strain checks
+
+- **Death:** click Vulnerability drill again, then use Wait on each crew turn without healing C1. Further damage to C1 removes them, closes ranks and adds **C1** to the persistent **DEAD** list. Healing cannot select that missing individual. Keep waiting: when no conscious crew remain, **DEFEAT** appears, all deployed crew are listed as dead, and **Next battle** is disabled.
+- **Strain relief:** restart the drill and choose **Steady voice → C3** on the opening Medic turn. Strain becomes **80**, but SHAKEN remains. Use Steady voice on C3 on subsequent Medic turns, keeping the crew alive: **60** still means Shaken; **40** clears it. At exactly **50**, Shaken remains (the automated boundary test checks this). No strain is gained simply because power is low during a turn: it is applied on entering a room.
+- **Victory recovery:** if a downed ally survives until the last enemy dies while another crew member is conscious, the downed survivor recovers to **1 HP**. Dead crew stay dead. This is also covered by a controlled native rules test; it may require several attempts to arrange manually.
+
+### Between-battle persistence
+
+1. Click **Fresh expedition**, fight a patrol to victory using legal attacks and healing, and note the surviving crew IDs, formation, HP, strain, Shaken markers, DEAD list and power. The existing class opening below is still valid with Overcharge OFF.
+2. Click **Next battle / −5 power**. A test corridor spends 5 power (clamped at zero), then the same patrol starts with the survivors' health, strain, Shaken, deaths and formation preserved. Temporary statuses clear and Field patch has **2 uses** again. A second click cannot start another battle or deduct another corridor cost.
+3. Room entry uses power **after** that cost: **50+ → +0 strain; 25–49 → +2; below 25 → +5** to each surviving crew member. The header shows the current pressure tier. Power at zero does not automatically cause defeat. Spend power on Overcharge during a winning battle to exercise lower tiers on the next entry.
+4. The control is unavailable during combat and after defeat. **Fresh expedition**, patrol switch, Vulnerability drill, Back to Hub, Main Menu or closing the app abandons this isolated battle-test session. Explore Ship uses a separate owned expedition; hub/save persistence comes in milestones 7–8.
+
+Read the two rule lines at the bottom and hover the power label for thresholds. All numbers used by these rules are editable in `res://content/balance.tres`. The drill is a test aid; ordinary expeditions still start with healthy, unshaken crew and 100 power.
+
+## Existing class and formation playtest
 
 Use **Godot 4.7.2 Standard** from the path above. Stop any old running game with **F8**, then press **F5 → Battle Test**. Leave the seed at **1729** and use unchanged content.
 
@@ -74,9 +120,9 @@ This opening is exercised with simulated GUI clicks and natural initiative in th
 | Expose / Exploit | On the Technician's turn, Expose an enemy. Before that enemy's second following turn start, select the Ranger's Exploit signal. The target HP-loss preview shows 7–10 against an unprotected Exposed enemy (capped by remaining HP), versus its base 5–7. Exposed is not consumed by the attack. |
 | Status timing | Watch P, X and D counters on affected actors. P = Protected, X = Exposed, D = Scorch. Counters decrease at that actor's turn start; Scorch deals 2 first. They expire at zero. Reapplying refreshes to 2, never adds stacks. Hover a card for full status names. |
 | Healing limit | Use Field patch twice on injured allies during one battle. A third use is disabled with “No uses left this battle.” Full-health targets cannot waste a use. Restart, injure someone again, and the Medic has 2 uses. |
-| Strain enemy / relief | Click **Boarding patrol / switch** to restart as **Signal patrol**. E3 becomes Signal Echo. Wait until it raises crew strain; on the Medic's turn choose Steady voice → an ally with Str above zero. Str decreases by up to 20. It has no Shaken or persistence yet. |
+| Strain enemy / relief | Click **Boarding patrol / switch** to restart as **Signal patrol**. E3 becomes Signal Echo. Wait until it raises crew strain; on the Medic's turn choose Steady voice → an ally with Str above zero. Str decreases by up to 20; Shaken and persistence now follow the M5 rules above. |
 | Enemy roles | Boarding patrol: Mauler hits front, Bulwark protects another enemy, Tow Drone pulls rear crew forward, Needle Turret attacks rear crew. Signal patrol replaces only the Tow Drone with a strain attacker. Displaced enemies can use a weak fallback attack instead of choosing illegal targets. |
-| Victory / defeat | Fight using legal attacks, use Move to recover useful ranks, and heal injured crew. Both patrols can be won. Restart and Wait on every crew turn to lose; outcome is terminal and Restart restores everyone. Zero HP still removes an actor immediately in M4. |
+| Victory / defeat | Fight using legal attacks, use Move to recover useful ranks, and heal injured crew. Both patrols can be won. Fresh expedition then Wait on every crew turn loses. Outcomes are terminal; downed crew remain until healed or killed, and a fresh test creates new individuals. |
 | Repeated input / restart | Double-click a target: one action resolves. Restart or switch patrol during an enemy delay: the old response must not damage the new battle. |
 | Keyboard / layout | Tab or arrows move focus; Enter activates the focused skill/card. Repeat at both sizes below. Read the three ability reasons, selected description, target damage, HP/strain/statuses, log and outcome. |
 
@@ -111,7 +157,7 @@ The design canvas is 1920×1080; the default window is 1280×720. `canvas_items`
 
 To see a signal, open `main_menu.tscn`, select the **NewGame** button, and inspect its **Signals** list. Its `pressed` connection goes to the scene's root. To change a label, select the Label node and edit its **Text** property in the Inspector.
 
-The battle owns its controller and enemy-delay Timer; there are no autoloads or persistent services yet. The Timer pauses briefly before each enemy action, but does not calculate damage. The rule objects are `RefCounted` data/code objects, not scene nodes, so the rules can run in tests without loading a battle scene.
+The battle owns its controller, enemy-delay Timer and in-memory ExpeditionState. There are no autoloads or campaign services yet. The Timer pauses briefly before each enemy action, but does not calculate damage. The rule objects and crew records are `RefCounted` objects, not scene nodes, so the rules can run in tests without loading a battle scene.
 
 ### Change actor values in the Inspector
 
@@ -120,7 +166,7 @@ The battle owns its controller and enemy-delay Timer; there are no autoloads or 
 3. For an optional experiment, record the original value, change a damage value or rank list, save, and run a new battle. The UI should use the new requirements. Restore original values afterward so tests and this walkthrough match.
 4. In `battle_test.tscn`, select **BattleController** to inspect **Battle Seed** (1729). Restart resets both initiative and damage randomness to that seed.
 
-`ContentCatalogue` explicitly preloads the actor files, which explicitly reference their attacks. Each combat actor owns its own health, battle strain, remaining statuses and use counters. Formation and initiative track stable IDs separately. See [COMBAT_RULES.md](COMBAT_RULES.md) for interfaces and resolution order.
+`ContentCatalogue` explicitly preloads the actor files, which explicitly reference their attacks. Each combat actor has independent mutable values; rules copy health, strain, Shaken and death back to its CrewState record. Temporary statuses/use counters are battle-local. Formation and initiative track stable IDs separately. See [COMBAT_RULES.md](COMBAT_RULES.md) for interfaces and resolution order.
 
 ## Automated checks
 
@@ -132,7 +178,7 @@ There is no test-framework dependency. `tests/run_tests.gd` runs rules without s
 & '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/setup_smoke.gd
 ```
 
-Expected: import exits 0 without project errors; rules print **149 checks, 0 failures** and **engine errors = 0**, exit 0; headless integration prints **360 checks, 0 failures**, exit 0. The rules suite compares full replay results across 64 seeds and verifies rejected commands do not change state or randomness. The integration suite checks legal target cards, swaps, rank compaction, visible disabled reasons, playable victory/defeat, repeated input across consecutive crew turns, restart cancellation, and the existing setup.
+Expected: import exits 0 without project errors; both suites report **0 failures**, with **engine errors = 0** for the rules runner, and exit 0. Current measured counts and exact log paths are in PROGRESS.md. The suites retain earlier checks and add downed/revival/death, Shaken and power boundaries, persisted crew records, repeated Overcharge/next-battle input, and equal outcomes at different presentation speeds.
 
 Use `run_tests.gd` as the entry point, not `combat_rules_test.gd`. The runner loads the suite after installing an engine error monitor so a script error cannot masquerade as a passing test. Check output as well as exit codes, particularly during import.
 
@@ -143,7 +189,7 @@ New-Item -ItemType Directory -Path '.artifacts' -Force | Out-Null
 & '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tests/setup_smoke.gd -- --capture
 ```
 
-Expected: **539 checks, 0 failures**, exit 0. Fifty-nine screenshots go into `.artifacts/`, including every class skill, both patrols, all status counters, and outcomes at both target sizes. Controlled skill/status screenshots use test fixtures; the full patrol battles use natural turns. Filenames identify the requested window size; the 1280×900 captures contain the 1280×720 viewport, excluding the Window's black bars.
+Expected: **0 failures**, exit 0, with screenshots in `.artifacts/`, including every class skill, both patrols, downed healing targets, Overcharge, combined statuses and outcomes at both target sizes. Controlled skill/status screenshots use test fixtures; full patrol battles use natural turns. Filenames identify the requested window size; the 1280×900 captures contain the 1280×720 viewport, excluding the Window's black bars.
 
 To confirm failure exit behaviour:
 
@@ -154,7 +200,7 @@ $LASTEXITCODE
 $LASTEXITCODE
 ```
 
-Expected: the first command prints **150 checks, 1 intentional failure**, exit **1**. The second prints **149 checks, 0 assertion failures**, then one intentionally injected parse error, **engine errors = 1**, exit **1**. Neither option should be used for a normal passing run. The malformed script exists only in memory; no broken project file is written. See [Godot's command-line guide](https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html).
+Expected: the first command prints **1 intentional failure**, exit **1**. The second prints **0 assertion failures**, then one intentionally injected parse error, **engine errors = 1**, exit **1**. Neither option should be used for a normal passing run. The malformed script exists only in memory; no broken project file is written. See [Godot's command-line guide](https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html).
 
 Automated inputs are simulated inside Godot. The recorded rendering checks used this machine's NVIDIA Compatibility renderer; your physical controls, editor F6 workflow, and display/DPI readability still need the manual playtest above. No Windows export or other hardware has been tested. Exact executed commands, results, and earlier failures/fixes are recorded in [PROGRESS.md](PROGRESS.md).
 
@@ -172,4 +218,4 @@ The GitHub repository is [ConsumedMedia/Hollow-Signal](https://github.com/Consum
 
 After your acceptance playtest, inspect `git status`, commit intended changes, then use `git push` to upload the new commit. Saving a file alone does not upload it. Never commit credentials, engine binaries, or caches. This repository uses Windows certificate validation (`http.sslBackend=schannel`) with TLS verification enabled; no global Git settings were changed.
 
-**Next milestone, only after this playtest and when requested:** milestone 5, crew vulnerability, persistent strain, Shaken and shared power.
+**Next milestone, only after acceptance playtesting and when requested:** milestone 7, persistent hub and complete expedition return loop.

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="RoomDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://content/room_definition.gd" id="script"]
+
+[resource]
+script = ExtResource("script")
+id = &"safe_room"
+display_name = "Safe room"
+description = "A shielded maintenance pod provides one rest: restore 12 health and reduce 30 strain for each survivor. No power is restored."
+kind = 4
+links = Array[StringName]([&"junction", &"containment"])
+map_column = 3
+map_row = 0
+strain_cost = 0
+recovery_health = 12
+recovery_strain = 30

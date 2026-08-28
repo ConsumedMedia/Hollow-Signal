@@ -1,5 +1,7 @@
 extends "res://scripts/screen_navigation.gd"
 ## Reads state and event snapshots. Target buttons submit commands; never damage.
+signal expedition_battle_closed
+var expedition_mode: bool = false
 
 @onready var controller: BattleController = $BattleController
 @onready var turn_label: Label = %TurnLabel
@@ -14,12 +16,18 @@ extends "res://scripts/screen_navigation.gd"
 @onready var move_button: Button = %Move
 @onready var wait_button: Button = %Wait
 @onready var restart_button: Button = %Restart
+@onready var overcharge_button: CheckButton = %Overcharge
+@onready var power_label: Label = %PowerLabel
+@onready var next_button: Button = %NextBattle
+@onready var rules_label: Label = %RulesLabel
 @onready var stage: PlaceholderStage = $Margin/Layout/Stage
 
 var selected_action: StringName = &""
 var _view_turn: int = -1
 var _log_lines: PackedStringArray = []
 var _setup_error: String = ""
+var _drill_active: bool = false
+var _seed_before_drill: int = 1729
 
 
 func _ready() -> void:
@@ -33,10 +41,64 @@ func _ready() -> void:
 	encounter_button.pressed.connect(_switch_encounter)
 	move_button.pressed.connect(select_action.bind(&"move"))
 	wait_button.pressed.connect(_on_wait_pressed)
+	overcharge_button.toggled.connect(_on_overcharge_toggled)
+	next_button.pressed.connect(_next_battle)
+	(%Drill as Button).pressed.connect(_start_drill)
+	(%ReturnToRoom as Button).pressed.connect(_return_to_room)
 	for rank: int in range(1, 5):
 		slot_button(ActorState.Team.CREW, rank).pressed.connect(_on_slot_pressed.bind(ActorState.Team.CREW, rank))
 		slot_button(ActorState.Team.ENEMY, rank).pressed.connect(_on_slot_pressed.bind(ActorState.Team.ENEMY, rank))
-	restart_battle()
+	if expedition_mode:
+		for button: Button in [encounter_button, restart_button, next_button, %Drill, %BackToHub, %MainMenu]:
+			button.hide()
+		(%ReturnToRoom as Button).show()
+		$Margin/Layout/Footer.text = "Expedition battle: health, strain, power and deaths carry back to the room. Retreat arrives in milestone 7."
+		_log_lines = ["Expedition encounter. Defeat loses the deployed crew; victory returns survivors to the ship."]
+		controller.start_battle(true)
+	else:
+		restart_battle()
+
+
+func _return_to_room() -> void:
+	if expedition_mode and not _transition_pending and controller.phase == BattleController.Phase.FINISHED:
+		_transition_pending = true
+		expedition_battle_closed.emit()
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if expedition_mode and event.is_action_pressed("ui_cancel"):
+		get_viewport().set_input_as_handled()
+		return
+	super._unhandled_key_input(event)
+
+
+func _on_overcharge_toggled(_pressed: bool) -> void:
+	_refresh()
+
+
+func _start_drill() -> void:
+	if _transition_pending:
+		return
+	if not _drill_active:
+		_seed_before_drill = controller.battle_seed
+	_drill_active = true
+	_view_turn = -1
+	_setup_error = ""
+	selected_action = &""
+	_log_lines = ["DRILL: new test crew. C1 downed, C3 Shaken, one Overcharge left. Medic acts first.",
+		"Field patch -> C1 revives them. Steady voice -> C3 reduces strain. Fresh expedition resets the drill."]
+	encounter_button.text = "Boarding patrol / switch"
+	controller.start_vulnerability_drill()
+
+
+func _next_battle() -> void:
+	if _transition_pending or controller.state == null or controller.state.outcome != &"victory":
+		return
+	_view_turn = -1
+	if controller.next_test_battle():
+		_log_lines = ["Next test room: health, strain, Shaken, deaths, ranks and power carried forward.",
+			"Temporary statuses and healing uses reset. Restart explicitly creates a fresh test expedition."]
+		_refresh()
 
 
 func _switch_encounter() -> void:
@@ -66,8 +128,11 @@ func restart_battle() -> void:
 	_view_turn = -1
 	selected_action = &""
 	_setup_error = ""
+	if _drill_active:
+		controller.battle_seed = _seed_before_drill
+		_drill_active = false
 	_log_lines = ["Choose an attack, then click a TARGET. Move: choose an adjacent ally marked SWAP.",
-		"Rank 1 is nearest the opposition. Each actor acts once per round. No permanent loss yet."]
+		"Downed crew can be healed. Further damage kills them. No conscious crew means everyone is lost."]
 	controller.start_battle()
 	if controller.phase == BattleController.Phase.PLAYER_INPUT:
 		_focus_action()
@@ -93,12 +158,26 @@ func _on_slot_pressed(team: ActorState.Team, rank: int) -> void:
 		return
 	var target: ActorState = controller.state.actor_at(team, rank)
 	if target != null:
-		controller.submit_player_action(selected_action, target.id, _view_turn)
+		controller.submit_player_action(selected_action, target.id, _view_turn, overcharge_button.button_pressed)
 
 
 func _present_events(events: Array[CombatEvent]) -> void:
 	for event: CombatEvent in events:
 		match event.kind:
+			&"power_spent":
+				_append_log("OVERCHARGE: %d power spent; %d left." % [event.amount, event.power_after])
+			&"downed":
+				_append_log("%s DOWNED: cannot act. Heal now; further damage kills permanently." % event.target_name)
+			&"died":
+				_append_log("%s DEAD: permanently lost from this expedition." % event.target_name)
+			&"revived":
+				_append_log("%s revived. Acts at its next unused initiative slot." % event.target_name)
+			&"recovered":
+				_append_log("%s survived downed and recovers to %d HP." % [event.target_name, event.health_after])
+			&"shaken":
+				_append_log("%s SHAKEN: reduced damage until strain falls below %d." % [event.target_name, controller.state.balance.shaken_clear_below])
+			&"shaken_cleared":
+				_append_log("%s is no longer Shaken." % event.target_name)
 			&"healed":
 				_append_log("%s heals %s for %d HP (now %d)." % [event.source_name, event.target_name, event.amount, event.health_after])
 			&"strain_changed":
@@ -126,8 +205,11 @@ func _present_events(events: Array[CombatEvent]) -> void:
 			&"round_started":
 				_append_log("Round %d: initiative rerolled (Speed + 1–6)." % event.round_number)
 			&"battle_ended":
-				_append_log("VICTORY. Restart to replay the same seed." if event.outcome == &"victory"
-					else "DEFEAT. Restart for a fresh attempt with the same seed.")
+				if expedition_mode:
+					_append_log("VICTORY. Return to room with your survivors." if event.outcome == &"victory" else "DEFEAT. All deployed crew lost. Return to the ship summary.")
+				else:
+					_append_log("VICTORY. Next battle keeps survivors; Restart creates fresh crew." if event.outcome == &"victory"
+						else "DEFEAT. All deployed crew are lost. Restart creates a NEW test expedition.")
 
 
 func _append_log(message: String) -> void:
@@ -150,6 +232,7 @@ func _refresh() -> void:
 		legal = CombatRules.get_legal_actions(state, state.active_actor_id)
 		if _view_turn != state.turn_number:
 			_view_turn = state.turn_number
+			overcharge_button.set_pressed_no_signal(false)
 			selected_action = &""
 			for command: ActionCommand in legal:
 				if command.action_id not in [&"move", &"wait"]:
@@ -160,6 +243,12 @@ func _refresh() -> void:
 		if command.action_id not in choices:
 			choices.append(command.action_id)
 	var acting: ActorState = state.get_actor(state.active_actor_id) if state != null else null
+	var selected: AbilityDefinition = acting.definition.get_ability(selected_action) if acting != null else null
+	overcharge_button.disabled = not can_act or selected == null or selected.damage_max <= 0 or state.expedition.power < state.balance.overcharge_cost
+	if overcharge_button.disabled:
+		overcharge_button.set_pressed_no_signal(false)
+	next_button.disabled = state == null or state.outcome != &"victory"
+	(%ReturnToRoom as Button).disabled = controller.phase != BattleController.Phase.FINISHED
 	var buttons: Array[Button] = [strike_button, shot_button, third_button]
 	for index: int in range(buttons.size()):
 		var ability: AbilityDefinition = acting.definition.abilities[index] if acting != null and index < acting.definition.abilities.size() else null
@@ -173,6 +262,21 @@ func _refresh() -> void:
 	if state == null:
 		turn_label.text = "Battle setup error"
 		return
+	var balance: CombatBalance = state.balance
+	overcharge_button.text = "Overcharge %s / %d power / +%d%%" % ["ON" if overcharge_button.button_pressed else "OFF", balance.overcharge_cost, roundi((balance.overcharge_multiplier - 1.0) * 100.0)]
+	overcharge_button.tooltip_text = "Select a damaging crew ability on your turn. Power is spent only when you click a legal target; fixed Scorch ticks are unchanged."
+	var dead_names: PackedStringArray = []
+	for member: CrewState in state.expedition.crew:
+		if member.dead:
+			dead_names.append(String(member.id).replace("crew_", "C"))
+	power_label.text = "POWER %d/%d | %sRoom strain +%d%s" % [state.expedition.power, balance.power_max,
+		"LOW: " if state.expedition.power < balance.power_safe_threshold else "",
+		CombatRules.room_strain(state.expedition.power), " | DEAD: " + ", ".join(dead_names) if not dead_names.is_empty() else ""]
+	power_label.tooltip_text = "Room entry: +0 strain at %d+ power; +%d at %d–%d; +%d below %d. Zero power does not end an expedition." % [
+		balance.power_safe_threshold, balance.medium_power_strain, balance.power_low_threshold, balance.power_safe_threshold - 1,
+		balance.low_power_strain, balance.power_low_threshold]
+	rules_label.text = "0 HP: DOWNED; heal to revive, further damage kills. No conscious crew: all lost.\nStrain %d: SHAKEN (−%d%% damage), clears below %d. P/X/D: Protected / Exposed / Scorch." % [
+		balance.shaken_threshold, roundi((1.0 - balance.shaken_damage_multiplier) * 100.0), balance.shaken_clear_below]
 	stage.crew_ids = state.crew_ranks.duplicate()
 	stage.enemy_ids = state.enemy_ranks.duplicate()
 	stage.active_id = state.active_actor_id
@@ -188,7 +292,7 @@ func _refresh() -> void:
 	var order: PackedStringArray = []
 	for index: int in range(state.turn_cursor, state.round_order.size()):
 		var queued: ActorState = state.get_actor(state.round_order[index])
-		if queued != null:
+		if queued != null and queued.is_conscious():
 			order.append("%s:%d" % [queued.short_name(), state.initiative_scores[queued.id]])
 	order_label.text = "Remaining order (Speed + d6): " + " > ".join(order) if actor != null else "Battle ended. No further actions."
 	_refresh_help(actor, can_act)
@@ -196,8 +300,10 @@ func _refresh() -> void:
 	if focus == null or (focus is Button and (focus as Button).disabled):
 		if can_act:
 			_focus_action()
-		else:
+		elif not expedition_mode:
 			restart_button.grab_focus()
+		elif not (%ReturnToRoom as Button).disabled:
+			(%ReturnToRoom as Button).grab_focus()
 
 
 func _focus_action() -> void:
@@ -217,13 +323,21 @@ func _refresh_slot(team: ActorState.Team, rank: int, legal: Array[ActionCommand]
 		button.tooltip_text = "No actor occupies this rank."
 		return
 	var marker: String = "ACTING" if actor.id == controller.state.active_actor_id else "Standing"
+	if actor.is_downed():
+		marker = "DOWNED"
 	for command: ActionCommand in legal:
-		if can_act and command.action_id == selected_action and actor.id in command.target_ids:
+		if can_act and command.overcharge == overcharge_button.button_pressed and command.action_id == selected_action and actor.id in command.target_ids:
 			button.disabled = false
 			marker = "SWAP" if selected_action == &"move" else "TARGET"
+			if actor.is_downed():
+				marker += " / DOWNED"
 			break
 	var status_labels: PackedStringArray = []
 	var status_details: PackedStringArray = []
+	if actor.shaken:
+		status_labels.append("SHAKEN")
+	if actor.is_downed():
+		status_details.append("DOWNED: cannot act; healing revives; any further positive damage kills.")
 	for status: StatusState in actor.statuses:
 		var symbol: String = ["P", "X", "D"][status.definition.kind]
 		status_labels.append("%s%d" % [symbol, status.remaining])
@@ -265,11 +379,11 @@ func _refresh_help(actor: ActorState, can_act: bool) -> void:
 		if selected.damage_max > 0:
 			var previews: PackedStringArray = []
 			for command: ActionCommand in CombatRules.get_legal_actions(controller.state, actor.id):
-				if command.action_id == selected.id:
+				if command.action_id == selected.id and command.overcharge == overcharge_button.button_pressed:
 					var target: ActorState = controller.state.get_actor(command.target_ids[0])
 					previews.append("%s %d–%d" % [target.short_name(),
-						mini(target.health, CombatRules.adjusted_damage(target, selected, selected.damage_min)),
-						mini(target.health, CombatRules.adjusted_damage(target, selected, selected.damage_max))])
+						mini(target.health, CombatRules.adjusted_damage(target, selected, selected.damage_min, actor, command.overcharge)),
+						mini(target.health, CombatRules.adjusted_damage(target, selected, selected.damage_max, actor, command.overcharge))])
 			detail_label.text += "\nTarget HP loss: " + "; ".join(previews)
 	elif actor == null:
-		detail_label.text = "Battle ended. Restart or switch patrol for a fresh battle."
+		detail_label.text = "Battle ended. Return to room to keep the resolved expedition state." if expedition_mode else "Battle ended. Next battle keeps survivors; Fresh expedition or patrol switch starts new test crew."

@@ -14,6 +14,8 @@ const BULWARK: ActorDefinition = preload("res://content/actors/bulwark.tres")
 const TUGGER: ActorDefinition = preload("res://content/actors/tugger.tres")
 const NEEDLE: ActorDefinition = preload("res://content/actors/needle.tres")
 const CHORISTER: ActorDefinition = preload("res://content/actors/chorister.tres")
+const SHIP: ShipDefinition = preload("res://content/ship.tres")
+const POWER_CELL: ItemDefinition = preload("res://content/items/power_cell.tres")
 
 
 static func crew_party() -> Array[ActorDefinition]:

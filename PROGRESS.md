@@ -2,6 +2,145 @@
 
 ## Status — 2026-08-28
 
+M5/M6 implementation and the reported room Resource fix are verified by Godot import, native rules, headless scene and rendered scene checks. The user reported "seems to be working" after the fix and requested GitHub submission on 2026-08-28. This records general M6 playtest acceptance, not individual confirmation of every README check or a separate M5 drill. Milestones 7–13 remain unauthorized.
+
+### GitHub checkpoint preparation — 2026-08-28
+
+Reviewed `git status --short --branch`, `git remote -v`, `git log -4 --oneline`, `git diff --stat`, `git diff --numstat` and `git ls-files --others --exclude-standard`. The intended submission includes the existing M5/M6 implementation, room Resource/focus fixes, regression tests and documentation. Remote is `https://github.com/ConsumedMedia/Hollow-Signal.git`; before submission both main references were at `f6ad903`. No gameplay was edited for this upload; the passing engine runs below remain the verification evidence.
+
+`git check-ignore .tools/godot-4.7.2/Godot_v4.7.2-stable_win64.exe .godot/editor/project_metadata.cfg .artifacts/m6-room-fix-rules.log` returned all three paths, exit 0: engine binaries, generated cache and test artifacts are excluded. Keep authored `.uid` files. Git reports an unreadable optional user-level ignore file; repository ignore rules still apply. Commit/push results are confirmed after execution, not assumed from this preparation record.
+
+### Room Resource parse error fix — current verification
+
+Cause: receiving.tres, junction.tres, containment.tres and signal_core.tres declared the ActorDefinition external script after an embedded resource. Moved those four declarations before all embedded resources. The ship errors were cascading dependency failures; no room content or combat balance changed. The existing test runner now checks all eight room files before loading the catalogue and rejects a synthetic late-declaration regression.
+
+Scene checks also found lost keyboard focus after natural corridor arrival. Arrival now focuses the first available room action. Existing scene assertions cover this at both target resolutions. No dependencies or assets were added.
+
+The earlier approval-service block was resolved for these authorized runs. Commands below actually ran in PowerShell from `C:\Users\CRS-Workstation\Game Dev`, using Godot **4.7.2.stable.official.ed1daf0bf Standard**, Compatibility:
+
+```powershell
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --import --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m6-room-fix-import.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m6-room-fix-rules.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m6-room-fix-smoke.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m6-room-fix-render.log' -- --capture
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m6-room-fix-negative.log' -- --self-test-failure
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m6-room-fix-negative-script.log' -- --self-test-script-error
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m6-room-fix-smoke-final.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m6-room-fix-render-final.log' -- --capture
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --scene res://scenes/expedition.tscn --quit-after 10 --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m6-room-fix-start.log'
+git diff --check
+```
+
+| Check | Observed result |
+|---|---|
+| Import | Exit 0; no project errors |
+| Rules | 287 checks, 0 failures, engine errors 0, exit 0; includes full main-route simulation, M5 zero-damage regression and eight-room declaration preflight |
+| Initial headless scenes | 517 checks, 2 failures, exit 1: corridor-arrival focus at both sizes; subsequently fixed |
+| Initial rendered scenes | 744 checks, 6 failures, exit 1: same two focus failures plus four window/capture dimension assertions; dimension assertions passed on repeat without a layout change, cause unconfirmed |
+| Negative assertion self-test | 288 checks, 1 intentional failure; exit 1 as required |
+| Negative script self-test | 287 checks, 0 assertion failures, 1 intentional in-memory script error; exit 1 as required |
+| Final headless scenes | 517 checks, 0 failures, no engine errors, exit 0 |
+| Final rendered scenes | 744 checks, 0 failures, no engine errors, exit 0 |
+| Direct expedition scene start | Exit 0; no loading errors; not a physical editor F6 test |
+| Whitespace | `git diff --check` passed |
+
+Rendering used this machine's NVIDIA RTX 3080 / OpenGL Compatibility. Reviewed airlock, hazard and overflow screenshots across the target sizes; visible text and controls fit. Overflow screenshots use a controlled fixture; complete-route rules simulation is separate evidence. Native GUI inputs are simulated, not physical desktop clicks. Manual controls, editor workflow, display/DPI readability, enjoyment/balance, other hardware and Windows export remain untested for M6.
+
+**Exact error retest:** use the pinned 4.7.2 editor, press F8 to stop the old game, wait for its filesystem rescan, and clear old Output/Debugger messages. Press F5 → New Game → Explore Ship. Expected: airlock/map loads with 100 power and no Resource parse errors. Select Receiving and let the corridor finish: power is 95, Engage is available and keyboard-focused. Engage, win, then Return to room: wounds/strain/power persist and the room resolves once. Full acceptance steps remain in README; report any new error before proceeding.
+
+The initial M5/M6 records below preserve what was and was not run at that time. Their pending/blocked wording is historical and superseded by the results above.
+
+### GitHub upload completed before milestone 5
+
+- `git add -- PROGRESS.md PROJECT_PLAN.md` and `git commit -m "Record milestone 4 playtest acceptance"`: exit 0, commit `f6ad903`.
+- `git push origin main`: exit 0, remote main advanced `4224ee1..f6ad903`.
+- `git ls-remote origin refs/heads/main`: exit 0, confirmed `f6ad9033154fedf66ba96a4defabbfb1b63d00a6`.
+- Milestones 3–4 and acceptance notes are uploaded. Milestone 5 changes are uncommitted and not pushed; preserve them while implementing milestone 6.
+
+### Historical milestone 5 implementation and verification
+
+Implemented downed/revival/permanent death, all-crew-loss defeat, victory recovery to 1 HP, persistent CrewState/ExpeditionState records, Shaken hysteresis and modifiers, shared power, Overcharge, a next-battle test corridor and a labelled vulnerability drill. Balance thresholds are Resources; mutable state and combat rules remain independent of presentation. No dependencies or assets were added.
+
+Commands ran in PowerShell from `C:\Users\CRS-Workstation\Game Dev`. The executable was `.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe`; `--version` returned `4.7.2.stable.official.ed1daf0bf`. All log paths below are under `C:/Users/CRS-Workstation/Game Dev/.artifacts/`.
+
+| Arguments after the executable | Observed result |
+|---|---|
+| `--headless --path . --import --log-file .../m5-import.log` | Latest import exit 0, no reported project errors. |
+| `--headless --path . --script res://tests/run_tests.gd --log-file .../m5-rules.log` | Last executed run: 233 checks, 0 failures, 0 engine errors, exit 0. A subsequently added zero-damage test has not run. |
+| `--headless --path . --script res://tests/setup_smoke.gd --log-file .../m5-smoke.log` | Original 360-check suite passed. Expanded run had 460 checks, 2 failures from a duplicate-next-battle UI bug; fixed afterward and verified in rendered run. Final headless rerun not executed. |
+| `--path . --script res://tests/setup_smoke.gd --log-file .../m5-render.log -- --capture` | 662 checks, 0 failures, exit 0, NVIDIA OpenGL Compatibility. 67 screenshots saved; reviewed downed targets, charged preview, combined statuses and defeat at target sizes. |
+| `--headless --path . --script res://.artifacts/m5_find_seed.gd` | Exit 0; seed 20 makes the Medic first in the downed-C1 drill. This ignored helper was only used to choose test data. |
+
+Intermediate failures were addressed: the old DOT-source-death test now applies a second hit because the first downs crew; a new fixture needed typed-array assignment; skipping a downed slot also advances the stale-input token. A duplicate Next battle signal changed the view token after the next battle began, preventing subsequent input. The screen now checks victory before changing that token; the 662-check rendered run includes the regression.
+
+After the rendered run, the UI gained explicit Overcharge ON/OFF text, terminal help was clarified, and the suite gained a natural drill-opening check plus a zero-damage check. Latest import passed, but final rules/headless reruns and both intentional failure modes were denied BEFORE execution by the approval service (usage-limit error). No new negative-check result, final rendered result or local commit is claimed. Do not bypass that rejection; resume checks only with the required authorization/service availability. Physical editor/mouse/DPI and balance playtests are still unreported. No Windows export was tested.
+
+### Historical milestone 6 implementation — initial verification gap
+
+Added the authored connected eight-room graph (three combat rooms, salvage, hazard, safe room, entry and single-rank boss placeholder), short horizontal corridor presentation with a skip path, room visited/resolved records, inventory with twelve slots and stacking, power cells, inspection choices and explicit overflow confirmation.
+
+The exploration scene owns one ExpeditionState and embeds the existing battle scene with that same state. Combat test/reset controls are hidden in expedition mode. Return to room is terminal-only, preserves wounds/strain/Shaken/deaths/power, and awards room loot once. Battle records snapshot the encounter room so stale results cannot resolve another room. No campaign hub, recruitment, retreat payout, equipment, disk saves, procedural generation, platforming, final boss mechanics, narrative or audio was added.
+
+The existing rules and smoke suites were extended for connectivity, optional-branch independence, full main-route simulation, repeated travel/arrival, stale battle results, cells, overflow, hazard/rest choices, corridor skip/natural completion and embedded combat at both target resolutions. **These M6 tests have not executed.** The smoke suite watchdog is now 120 seconds to allow the additional scene scenarios; this is not a tool sleep.
+
+#### Actual M6 checks
+
+- Read-only PowerShell scan of `content`, `scenes`, `ui`: **154 referenced resource paths exist**, all declared `load_steps` equal external/subresource counts plus one, and **4 scene node-parent trees** have no missing parent or duplicate path. Exit **0**.
+- `git diff --check`: exit **0**.
+- `git status --short --branch`: local main still tracks remote main at `f6ad903`; M5/M6 changes are uncommitted, including new content, runtime, scene and documentation files.
+- No M6 Godot import, automated GDScript execution, graphical run, screenshot or manual playtest was performed. The preceding engine approval rejection was not bypassed or retried. The successful M5 counts above are historical and do NOT validate the current M6 checkout.
+
+The read-only static scan executed was:
+
+```powershell
+$projectRoot = (Get-Location).Path
+$sourceFiles = Get-ChildItem content,scenes,ui -Recurse -File | Where-Object { $_.Extension -in '.tres','.tscn' }
+$issues = @()
+$referenceCount = 0
+$sceneCount = 0
+foreach ($sourceFile in $sourceFiles) {
+  $sourceText = [System.IO.File]::ReadAllText($sourceFile.FullName)
+  foreach ($reference in [regex]::Matches($sourceText, 'path="res://([^"]+)"')) {
+    $referenceCount++
+    if (-not (Test-Path -LiteralPath (Join-Path $projectRoot $reference.Groups[1].Value))) { $issues += $sourceFile.Name + ': missing ' + $reference.Groups[1].Value }
+  }
+  $steps = [regex]::Match($sourceText, 'load_steps=(\d+)')
+  $expected = 1 + [regex]::Matches($sourceText, '\[(?:ext_resource|sub_resource) ').Count
+  if ($steps.Success -and [int]$steps.Groups[1].Value -ne $expected) { $issues += $sourceFile.Name + ': load_steps mismatch' }
+  if ($sourceFile.Extension -eq '.tscn') {
+    $sceneCount++
+    $nodePaths = @('.')
+    foreach ($node in [regex]::Matches($sourceText, '\[node name="([^"]+)"[^\]]*\]')) {
+      $parent = [regex]::Match($node.Value, 'parent="([^"]+)"')
+      if (-not $parent.Success) { continue }
+      $parentPath = $parent.Groups[1].Value
+      if ($parentPath -notin $nodePaths) { $issues += $sourceFile.Name + ': missing parent ' + $parentPath }
+      $nodePath = if ($parentPath -eq '.') { $node.Groups[1].Value } else { $parentPath + '/' + $node.Groups[1].Value }
+      if ($nodePath -in $nodePaths) { $issues += $sourceFile.Name + ': duplicate node ' + $nodePath }
+      $nodePaths += $nodePath
+    }
+  }
+}
+if ($issues.Count -gt 0) { $issues; exit 1 }
+Write-Output "STATIC PASS: $referenceCount resource paths; load_steps counts; $sceneCount scene node-parent trees. This does not compile GDScript or import Godot Resources."
+git diff --check
+```
+
+#### Commands pending at initial implementation (superseded above)
+
+Run from the workspace after the required engine-run authorization/service is available:
+
+```powershell
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --import --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m6-import.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m6-rules.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m6-smoke.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m6-render.log' -- --capture
+```
+
+Then run both negative runner self-tests documented in README, inspect actual screenshots, fix failures and repeat affected checks. No passing count is predicted. Exact manual steps and expected results are in README's milestone 6 section; they are expectations, not observations. Graphical readability, scene integration, compilation, content import and complete-route balance all remain unverified. Preserve the uncommitted work; create a checkpoint only after verification.
+
+## Historical milestone 4 status — 2026-08-28
+
 Milestone 4 is implemented after the user authorized the next milestone following the Close strike diagnostic. The battle now has Breacher, Technician, Ranger and Medic skills, five enemy archetypes across two patrols, healing/use limits, battle-local strain, protection, Exposed, Scorch and forced movement. Final import, native rules/integration/rendering checks passed. On 2026-08-28 the user reported that everything seemed to work: general playtest acceptance, without enumerating individual manual checks.
 
 Milestone 4 began at local commit `73c4eee`, with four uncommitted files from the earlier diagnostic (README, plan, progress and the smoke test). Preserved that work, history, navigation, original shapes, engine, native test runner and authored/runtime separation. No dependencies or assets were installed. Godot remains **4.7.2 Standard / Compatibility**, project version `0.4.0-milestone-4`. No milestone 5 or later systems were started.
@@ -12,7 +151,9 @@ Milestone 4 began at local commit `73c4eee`, with four uncommitted files from th
 - Milestone 2: implementation and automated/rendered verification complete; user authorized moving to milestone 3, without separately reporting every manual check.
 - Milestone 3: implementation and automated/rendered verification complete; user authorized proceeding to milestone 4 after the diagnostic. The earlier reported symptom was not reproduced or confirmed fixed.
 - Milestone 4: implementation and automated/rendered verification complete; user reported general playtest success on 2026-08-28.
-- Milestones 5–13: not started or authorized.
+- Milestone 5: implemented locally; current combined rules/headless/rendered suites pass. User requested milestone 6 without reporting an M5 playtest; acceptance remains unreported.
+- Milestone 6: implementation and automated verification complete; user reported general playtest success after the room parse/focus fixes and requested GitHub submission. Individual acceptance checks were not separately enumerated.
+- Milestones 7–13: not started or authorized.
 
 ## Milestone 4 — Actual verification
 
@@ -420,12 +561,13 @@ Result: exit code 0; 13 milestone headings and 13 not-started statuses; exactly 
 - Milestone 4 received general user playtest acceptance. Individual physical keyboard/mouse, editor F5/F6/F8, display/DPI readability and tactical balance checks were not separately reported; automated GUI input and native screenshots do not establish those results.
 - Only this machine's NVIDIA Compatibility renderer was exercised. No Windows export or other hardware testing; exports remain milestone 13.
 - The first M4 import exited 1 without a printed project error; the final import passed. The same intermittent behavior occurred during earlier milestones. Cause remains unconfirmed; keep the log if it recurs.
-- No downed/permanent death, persistent strain/Shaken, power, campaign, saving, audio, or later systems are implemented or tested. Zero HP currently removes the actor from this battle only. M4 strain resets on restart/switch; it is not campaign state.
+- M5/M6 now add vulnerability, shared power and exploration within an in-memory expedition. Campaign, saving and audio are not implemented. Current verification and remaining manual checks are recorded at the top of this document.
+- The first M6 rendered run had four window/capture dimension assertion failures; the final repeat passed without a layout change. Cause is unconfirmed; retain logs if this recurs.
 - Determinism requires the same content, seed, commands, and pinned engine. Cross-version replay/save compatibility is not claimed.
-- Milestone 3 and 4 checkpoints are local until a further GitHub push is requested. No push was performed during M4.
+- Milestone 3 and 4 checkpoints and acceptance notes were pushed to GitHub at f6ad903 before M5. The user has now authorized a checkpoint/upload for M5/M6 and this fix; see the submission record above and Git history.
 
 ## Next steps
 
-1. General milestone 4 playtest success is recorded. Keep README.md's detailed checks available for regression testing and any steps not yet tried.
-2. Report any further issues with reproduction steps and the actor/class/rank line. No gameplay changes were made in response to the roadmap question.
-3. Start milestone 5 only when explicitly requested: downed/death, persistent strain, Shaken, shared power and Overcharge. Preserve the effect/rules architecture and editable data.
+1. Submit the reviewed M5/M6 checkpoint to GitHub and confirm the remote commit matches local HEAD.
+2. Retain the README checks for regression testing and complete any unreported individual manual checks; fix further reports before another milestone.
+3. Start milestone 7 only when requested. Milestones 7–13 remain out of scope.

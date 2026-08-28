@@ -4,6 +4,8 @@ extends RefCounted
 
 var actors: Array[ActorState] = []
 var balance: CombatBalance
+var expedition: ExpeditionState
+var encounter_room: StringName = &"" # Snapshot prevents stale battle returns resolving another room.
 var crew_ranks: Array[StringName] = []
 var enemy_ranks: Array[StringName] = []
 var round_order: Array[StringName] = []

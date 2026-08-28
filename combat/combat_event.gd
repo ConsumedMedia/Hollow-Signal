@@ -8,6 +8,7 @@ var target_id: StringName
 var amount: int
 var health_after: int = 0
 var strain_after: int = 0
+var power_after: int = 0
 var status_name: String = ""
 var duration: int = 0
 var ability_name: String = ""

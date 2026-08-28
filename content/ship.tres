@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="ShipDefinition" load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://content/ship_definition.gd" id="script"]
+[ext_resource type="Script" path="res://content/room_definition.gd" id="room_script"]
+[ext_resource type="Script" path="res://content/item_drop.gd" id="drop_script"]
+[ext_resource type="Resource" path="res://content/items/power_cell.tres" id="cell"]
+[ext_resource type="Resource" path="res://content/rooms/airlock.tres" id="airlock"]
+[ext_resource type="Resource" path="res://content/rooms/receiving.tres" id="receiving"]
+[ext_resource type="Resource" path="res://content/rooms/junction.tres" id="junction"]
+[ext_resource type="Resource" path="res://content/rooms/salvage.tres" id="salvage"]
+[ext_resource type="Resource" path="res://content/rooms/hazard.tres" id="hazard"]
+[ext_resource type="Resource" path="res://content/rooms/safe_room.tres" id="safe_room"]
+[ext_resource type="Resource" path="res://content/rooms/containment.tres" id="containment"]
+[ext_resource type="Resource" path="res://content/rooms/signal_core.tres" id="signal_core"]
+
+[sub_resource type="Resource" id="starting_cells"]
+script = ExtResource("drop_script")
+item = ExtResource("cell")
+quantity = 2
+
+[resource]
+script = ExtResource("script")
+entry_id = &"airlock"
+boss_id = &"signal_core"
+rooms = Array[ExtResource("room_script")]([ExtResource("airlock"), ExtResource("receiving"), ExtResource("junction"), ExtResource("salvage"), ExtResource("hazard"), ExtResource("safe_room"), ExtResource("containment"), ExtResource("signal_core")])
+starting_items = Array[ExtResource("drop_script")]([SubResource("starting_cells")])
+inventory_slots = 12
+corridor_seconds = 1.2

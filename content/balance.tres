@@ -5,6 +5,19 @@
 [resource]
 script = ExtResource("1")
 strain_max = 100
+shaken_threshold = 100
+shaken_clear_below = 50
+shaken_damage_multiplier = 0.75
+victory_recovery_health = 1
+power_max = 100
+starting_power = 100
+corridor_power_cost = 5
+power_safe_threshold = 50
+power_low_threshold = 25
+medium_power_strain = 2
+low_power_strain = 5
+overcharge_cost = 10
+overcharge_multiplier = 1.5
 ai_protection_bonus = 100
 ai_status_bonus = 5
 ai_movement_bonus = 8

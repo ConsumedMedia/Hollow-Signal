@@ -84,7 +84,7 @@ script = ExtResource("3_stage")
 [node name="Note" type="Label" parent="Margin/Layout/Body/VesselPanel/Vessel"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-text = "Schematic placeholder. Exploration arrives in milestone 6."
+text = "Explore eight authored rooms. Optional salvage and hazard branch; a route to the boss placeholder."
 autowrap_mode = 2
 
 [node name="SetupPanel" type="PanelContainer" parent="Margin/Layout/Body"]
@@ -104,7 +104,7 @@ text = "First contact is ready"
 
 [node name="Description" type="Label" parent="Margin/Layout/Body/SetupPanel/Info"]
 layout_mode = 2
-text = "The hub is still a placeholder.\n\nTest the Breacher, Technician, Ranger and Medic, with three abilities each and two enemy patrols."
+text = "The hub is still a placeholder.\n\nExplore the ship with four crew, shared power and a twelve-slot hold, or open the isolated battle test."
 autowrap_mode = 2
 
 [node name="Rule" type="HSeparator" parent="Margin/Layout/Body/SetupPanel/Info"]
@@ -133,6 +133,12 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Main Menu"
 
+[node name="ExploreShip" type="Button" parent="Margin/Layout/Navigation"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Explore Ship"
+
 [node name="Footer" type="Label" parent="Margin/Layout"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.65, 0.73, 0.77, 1)
@@ -141,3 +147,4 @@ text = "ESC main menu   /   TAB or ARROWS to focus   /   ENTER to confirm   /   
 
 [connection signal="pressed" from="Margin/Layout/Navigation/OpenBattleTest" to="." method="open_screen" binds= ["res://scenes/battle_test.tscn"]]
 [connection signal="pressed" from="Margin/Layout/Navigation/MainMenu" to="." method="open_screen" binds= ["res://scenes/main_menu.tscn"]]
+[connection signal="pressed" from="Margin/Layout/Navigation/ExploreShip" to="." method="open_screen" binds= ["res://scenes/expedition.tscn"]]

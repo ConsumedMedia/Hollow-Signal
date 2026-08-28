@@ -18,7 +18,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	create_timer(60.0).timeout.connect(func() -> void:
+	create_timer(120.0).timeout.connect(func() -> void:
 		printerr("SETUP SMOKE: timed out before completion")
 		quit(1))
 	var version: Dictionary = Engine.get_version_info()
@@ -91,12 +91,242 @@ func _run() -> void:
 	await _test_battle_flow()
 	await _test_class_battle_ui()
 	await _test_manual_opening()
+	await _test_drill_opening()
+	await _test_vulnerability_ui()
+	await _test_exploration_ui()
 	_check(_monitor.error_count() == 0, "No engine errors during scene checks")
 	# Optional negative self-test proves this runner exits unsuccessfully.
 	if "--self-test-failure" in OS.get_cmdline_user_args():
 		_check(false, "Intentional failure to verify exit code")
 	print("SETUP SMOKE: %d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
+
+
+func _test_exploration_ui() -> void:
+	var expedition_scene: String = "res://scenes/expedition.tscn"
+	for window_size: Vector2i in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
+		root.size = window_size
+		await _open(expedition_scene, false)
+		var state: ExpeditionState = current_scene.get("expedition") as ExpeditionState
+		var map: RoomMap = current_scene.get_node("%RoomMap") as RoomMap
+		_check(state.current_room == &"airlock" and map.buttons.size() == 8, "Exploration scene shows eight authored room buttons")
+		_check(not map.buttons[&"receiving"].disabled and map.buttons[&"signal_core"].disabled, "Map only permits adjacent travel")
+		_check_layout(expedition_scene, window_size)
+		if "--capture" in OS.get_cmdline_user_args():
+			await _capture(expedition_scene, window_size, "m6_airlock")
+		await _click_button(map.buttons[&"receiving"])
+		_check(state.power == 95 and state.destination == &"receiving", "GUI travel starts one corridor and spends five power")
+		_check((current_scene.get_node("%Corridor") as CorridorView).visible, "Corridor presentation is visible while travelling")
+		if "--capture" in OS.get_cmdline_user_args():
+			await _capture(expedition_scene, window_size, "m6_corridor")
+		await _click_button(current_scene.get_node("%SkipCorridor") as Button)
+		_check(state.current_room == &"receiving" and state.destination.is_empty(), "Skipping corridor completes arrival without extra power cost")
+		_check((current_scene.get_node("%Engage") as Button).visible, "Entering combat room exposes the engage action")
+		await _click_button(current_scene.get_node("%Engage") as Button)
+		var battle_view: Control = current_scene.get("battle") as Control
+		var controller: BattleController = battle_view.get_node("BattleController") as BattleController
+		controller.enemy_timer.wait_time = 0.001
+		_check(controller.expedition == state and controller.state.crew_ranks.size() == 4, "Embedded battle uses the same expedition object")
+		_check(not (battle_view.get_node("%Restart") as Button).visible and not (battle_view.get_node("%NextBattle") as Button).visible, "Expedition combat hides fresh/reset test controls")
+		_check((battle_view.get_node("%ReturnToRoom") as Button).disabled, "Cannot leave an unresolved expedition fight")
+		for action: int in range(250):
+			await _await_player(controller)
+			if controller.state.outcome != &"ongoing":
+				break
+			var command: ActionCommand = EnemyPolicy.choose_action(controller.state)
+			controller.submit_player_action(command.action_id, command.target_ids[0] if not command.target_ids.is_empty() else &"", command.expected_turn, command.overcharge)
+			await _settle()
+		_check(controller.state.outcome == &"victory", "Exploration's first patrol can be won through the existing controller")
+		var wounded: int = state.crew[0].health
+		var power: int = state.power
+		await _click_button(battle_view.get_node("%ReturnToRoom") as Button)
+		_check(current_scene.get("battle") == null and state.rooms[&"receiving"].resolved and state.power == power and state.crew[0].health == wounded, "Return to room preserves wounds/power and marks the encounter resolved")
+		_check_layout(expedition_scene, window_size)
+
+		# Controlled inventory fixture: full hold, then one-time authored salvage.
+		state.current_room = &"salvage"
+		state.rooms[&"salvage"].visited = true
+		ExpeditionRules.inspect(state, &"accept")
+		current_scene.call("_refresh")
+		await _settle()
+		_check(not state.pending_loot.is_empty() and (current_scene.get_node("%LootNotice") as Label).text.contains("HOLD FULL"), "Overflow displays a clear keep/discard decision")
+		_check(map.buttons[&"hazard"].disabled, "Overflow disables travel")
+		_check_layout(expedition_scene, window_size)
+		if "--capture" in OS.get_cmdline_user_args():
+			await _capture(expedition_scene, window_size, "m6_overflow")
+		var grid: GridContainer = current_scene.get_node("%InventoryGrid") as GridContainer
+		await _click_button(grid.get_child(0) as Button)
+		await _click_button(current_scene.get_node("%DiscardSlot") as Button)
+		var dialog: ConfirmationDialog = current_scene.get_node("DiscardConfirmation") as ConfirmationDialog
+		_check(dialog.visible and dialog.dialog_text.contains("Discard ALL"), "Discarding a stored stack requires explicit confirmation")
+		dialog.confirmed.emit()
+		dialog.hide()
+		await _settle()
+		_check(state.inventory.stacks.size() <= 12, "Confirmed replacement never exceeds twelve slots")
+		while not state.pending_loot.is_empty():
+			ExpeditionRules.discard_pending(state)
+		current_scene.call("_refresh")
+		await _settle()
+		_check(not map.buttons[&"hazard"].disabled, "Resolving overflow unlocks connected travel")
+		# Normal corridor completion and skip share the same once-only arrival path.
+		await _click_button(map.buttons[&"hazard"])
+		await create_timer(state.ship.corridor_seconds + 0.1).timeout
+		_check(state.current_room == &"hazard" and state.destination.is_empty(), "Unskipped corridor completes through the same arrival rule")
+		_check_layout(expedition_scene, window_size)
+		if "--capture" in OS.get_cmdline_user_args():
+			await _capture(expedition_scene, window_size, "m6_hazard")
+
+
+func _test_drill_opening() -> void:
+	await _open(BATTLE, false)
+	var controller: BattleController = current_scene.get_node("BattleController") as BattleController
+	controller.enemy_timer.wait_time = 0.001
+	await _click_button(current_scene.get_node("%Drill") as Button)
+	await _click_button(current_scene.get_node("%Shot") as Button)
+	await _click_button(_slot(ActorState.Team.CREW, 1))
+	_check(controller.state.active_actor_id == &"crew_1", "README drill: revived C1 gets its unused turn naturally")
+	await _click_button(current_scene.get_node("%Wait") as Button)
+	_check(controller.state.active_actor_id == &"crew_2", "README drill: C2 follows C1")
+	await _click_button(current_scene.get_node("%Wait") as Button)
+	await _await_player(controller)
+	_check(controller.state.active_actor_id == &"crew_3", "README drill: Ranger follows the enemy action")
+	await _click_button(current_scene.get_node("%Strike") as Button)
+	await _click_button(current_scene.get_node("%Overcharge") as Button)
+	_check((current_scene.get_node("%SelectedDetail") as Label).text.contains("E4 6–9"), "README drill: Shaken Overcharge preview is 6–9")
+	await _click_button(_slot(ActorState.Team.ENEMY, 4))
+	_check(controller.expedition.power == 0, "README drill: charged target click spends the last 10 power")
+
+
+func _test_vulnerability_ui() -> void:
+	for window_size: Vector2i in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
+		root.size = window_size
+		await _open(BATTLE, false)
+		var controller: BattleController = current_scene.get_node("BattleController") as BattleController
+		controller.enemy_timer.wait_time = 10.0
+		await _click_button(current_scene.get_node("%Drill") as Button)
+		_check(controller.state.active_actor_id == &"crew_4" and controller.state.get_actor(&"crew_1").is_downed(), "Drill naturally starts with Medic and downed Breacher")
+		_check(_slot(ActorState.Team.CREW, 1).text.contains("DOWNED") and _slot(ActorState.Team.CREW, 3).text.contains("SHAKEN"), "Downed and Shaken are readable labels, not color alone")
+		_check((current_scene.get_node("%PowerLabel") as Label).text.contains("LOW") and controller.expedition.power == 10, "Drill shows low power pressure")
+		await _click_button(current_scene.get_node("%Shot") as Button)
+		var heal_target: Button = _slot(ActorState.Team.CREW, 1)
+		_check(not heal_target.disabled and heal_target.text.contains("DOWNED"), "Field patch can select the downed ally")
+		var charge: CheckButton = current_scene.get_node("%Overcharge") as CheckButton
+		_check(charge.disabled and not charge.button_pressed, "Support abilities cannot enable Overcharge")
+		_check_layout(BATTLE, window_size)
+		if "--capture" in OS.get_cmdline_user_args():
+			await _capture(BATTLE, window_size, "m5_downed")
+		await _click_button(heal_target)
+		_check(controller.state.get_actor(&"crew_1").health == 8 and controller.expedition.get_crew(&"crew_1").health == 8, "GUI heal revives and updates the persistent crew record")
+		_check(controller.state.get_actor(&"crew_4").uses.get(&"field_patch", 0) == 1, "Revival uses exactly one healing charge")
+
+		_fixture_player_turn(controller, &"crew_3")
+		controller.state_changed.emit()
+		await _settle()
+		# Select the Ranger's first ability through its real button.
+		await _click_button(current_scene.get_node("%Strike") as Button)
+		_check(not charge.disabled, "Damaging ability can enable Overcharge with exactly 10 power")
+		var before_rng: int = controller.rng.state
+		await _click_button(charge)
+		_check(charge.button_pressed and controller.expedition.power == 10 and controller.rng.state == before_rng, "Selecting Overcharge changes neither power nor gameplay randomness")
+		var target: ActorState = controller.state.get_actor(&"enemy_4")
+		var ability: AbilityDefinition = controller.state.get_actor(&"crew_3").definition.abilities[0]
+		var predicted: int = CombatRules.adjusted_damage(target, ability, ability.damage_min, controller.state.get_actor(&"crew_3"), true)
+		_check((current_scene.get_node("%SelectedDetail") as Label).text.contains("E4 %d" % predicted), "Shaken and Overcharge are included in displayed target damage")
+		_check_layout(BATTLE, window_size)
+		if "--capture" in OS.get_cmdline_user_args():
+			await _capture(BATTLE, window_size, "m5_overcharge")
+		var hp: int = target.health
+		var original_state: CombatState = controller.state
+		await _click_button(_slot(ActorState.Team.ENEMY, 4))
+		_check(controller.expedition.power == 0 and target.health < hp, "GUI charged attack spends 10 power and deals damage")
+		_check(not controller.submit_player_action(ability.id, target.id, 1, true), "Repeat/stale charged click is rejected")
+		_fixture_player_turn(controller, &"crew_3")
+		await _settle()
+		_check(charge.disabled and not charge.button_pressed and original_state.outcome == &"ongoing", "Zero power disables Overcharge but does not end combat")
+
+		# Maximum live card content, including all statuses and Shaken, fits both sizes.
+		var crew: ActorState = controller.state.get_actor(&"crew_3")
+		for status: StatusDefinition in [
+			ContentCatalogue.BREACHER.abilities[1].effects[0].status,
+			ContentCatalogue.TECHNICIAN.abilities[1].effects[0].status,
+			ContentCatalogue.TECHNICIAN.abilities[0].effects[0].status]:
+			crew.statuses.append(StatusState.new(status, crew))
+		controller.state_changed.emit()
+		await _settle()
+		_check_layout(BATTLE, window_size)
+		if "--capture" in OS.get_cmdline_user_args():
+			await _capture(BATTLE, window_size, "m5_statuses")
+		await _click_button(current_scene.get_node("%Restart") as Button)
+		_check(controller.expedition != original_state.expedition and controller.expedition.power == 100 and controller.battle_seed == 1729, "Fresh expedition leaves the drill and restores the original seed")
+		_check(original_state.expedition.power == 0, "Fresh restart does not mutate the abandoned expedition")
+
+	# Natural battle victory, next-room carryover, and repeat click guard.
+	await _open(BATTLE, false)
+	var controller: BattleController = current_scene.get_node("BattleController") as BattleController
+	controller.enemy_timer.wait_time = 0.001
+	controller.enemy_definitions = ContentCatalogue.enemy_party(true)
+	current_scene.call("restart_battle")
+	await _play_class_battle(controller, false)
+	var previous: ExpeditionState = controller.expedition
+	var survivors: Dictionary[StringName, Array] = {}
+	for member: CrewState in previous.crew:
+		survivors[member.id] = [member.health, member.strain, member.shaken, member.dead]
+	var prior_power: int = previous.power
+	var next_button: Button = current_scene.get_node("%NextBattle") as Button
+	_check(not next_button.disabled and controller.state.outcome == &"victory", "Victory enables the next-battle control")
+	next_button.pressed.emit()
+	next_button.pressed.emit()
+	await _settle()
+	_check(controller.expedition == previous and previous.power == prior_power - 5, "Next battle carries the same expedition and duplicate clicks spend only one corridor cost")
+	var preserved: bool = true
+	for member: CrewState in previous.crew:
+		preserved = preserved and survivors[member.id] == [member.health, member.strain, member.shaken, member.dead]
+	_check(preserved, "Next battle preserves health, strain, Shaken and dead records at safe power")
+	_check(controller.state.get_actor(&"crew_4").uses.is_empty(), "Next battle resets the Medic's per-battle healing uses")
+	_check(next_button.disabled, "Next battle is unavailable while combat is active")
+	await _play_class_battle(controller, true)
+	_check(controller.expedition.failed and (current_scene.get_node("%PowerLabel") as Label).text.contains("DEAD:"), "Defeat visibly lists lost crew and marks the expedition failed")
+	_check((current_scene.get_node("%NextBattle") as Button).disabled, "Defeated expedition cannot continue")
+	for window_size: Vector2i in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
+		root.size = window_size
+		await _settle()
+		_check_layout(BATTLE, window_size)
+		if "--capture" in OS.get_cmdline_user_args():
+			await _capture(BATTLE, window_size, "m5_defeat")
+	await _test_pacing_independence()
+
+
+func _test_pacing_independence() -> void:
+	var baseline: Array[Dictionary] = []
+	var final_crew: Array[Dictionary] = []
+	var final_power: int = 0
+	for pace: float in [0.001, 0.025]:
+		await _open(BATTLE, false)
+		var controller: BattleController = current_scene.get_node("BattleController") as BattleController
+		controller.enemy_timer.wait_time = pace
+		var transcript: Array[Dictionary] = []
+		controller.events_resolved.connect(func(events: Array[CombatEvent]) -> void:
+			for event: CombatEvent in events:
+				transcript.append({"kind": event.kind, "source": event.source_id, "target": event.target_id,
+					"amount": event.amount, "hp": event.health_after, "strain": event.strain_after,
+					"power": event.power_after, "ranks": event.rank_ids.duplicate(), "outcome": event.outcome}))
+		for index: int in range(300):
+			await _await_player(controller)
+			if controller.state.outcome != &"ongoing":
+				break
+			var command: ActionCommand = EnemyPolicy.choose_action(controller.state)
+			_check(controller.submit_player_action(command.action_id, command.target_ids[0] if not command.target_ids.is_empty() else &"", command.expected_turn, command.overcharge), "Pacing test accepts legal command")
+			await _settle()
+		var crew: Array[Dictionary] = []
+		for member: CrewState in controller.expedition.crew:
+			crew.append({"id": member.id, "hp": member.health, "strain": member.strain, "shaken": member.shaken, "dead": member.dead})
+		_check(controller.state.outcome == &"victory", "Pacing test completes victory")
+		if pace == 0.001:
+			baseline = transcript
+			final_crew = crew
+			final_power = controller.expedition.power
+		else:
+			_check(transcript == baseline and crew == final_crew and final_power == controller.expedition.power, "Different presentation pacing yields identical ordered events, health, strain, deaths and power")
 
 
 func _test_manual_opening() -> void:

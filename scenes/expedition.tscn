@@ -1,0 +1,219 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/expedition_screen.gd" id="screen"]
+[ext_resource type="Theme" path="res://ui/prototype_theme.tres" id="theme"]
+[ext_resource type="Script" path="res://scripts/room_map.gd" id="map"]
+[ext_resource type="Script" path="res://scripts/corridor_view.gd" id="corridor"]
+
+[sub_resource type="StyleBoxFlat" id="CompactPanel"]
+content_margin_left = 16.0
+content_margin_right = 16.0
+content_margin_top = 12.0
+content_margin_bottom = 12.0
+bg_color = Color(0.058, 0.096, 0.132, 1)
+
+[sub_resource type="StyleBoxFlat" id="CompactButton"]
+content_margin_left = 12.0
+content_margin_right = 12.0
+content_margin_top = 8.0
+content_margin_bottom = 8.0
+bg_color = Color(0.105, 0.17, 0.215, 1)
+
+[node name="Expedition" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("theme")
+script = ExtResource("screen")
+initial_focus = NodePath("Margin/Layout/Navigation/EndTest")
+back_scene = "res://scenes/hub.tscn"
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.035, 0.051, 0.075, 1)
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_vertical = 2
+theme_override_constants/margin_left = 48
+theme_override_constants/margin_right = 48
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="Layout" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Header" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "HOLLOW SIGNAL / EIGHT-ROOM EXPEDITION TEST"
+
+[node name="Summary" type="Label" parent="Margin/Layout"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Power / Cargo"
+
+[node name="CrewSummary" type="Label" parent="Margin/Layout"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+autowrap_mode = 2
+
+[node name="MapArea" type="Control" parent="Margin/Layout"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 180)
+
+[node name="RoomMap" type="Control" parent="Margin/Layout/MapArea"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("map")
+
+[node name="Corridor" type="Control" parent="Margin/Layout/MapArea"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+clip_contents = true
+script = ExtResource("corridor")
+
+[node name="Body" type="HBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 24
+
+[node name="RoomPanel" type="PanelContainer" parent="Margin/Layout/Body"]
+theme_override_styles/panel = SubResource("CompactPanel")
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RoomContent" type="VBoxContainer" parent="Margin/Layout/Body/RoomPanel"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="RoomTitle" type="Label" parent="Margin/Layout/Body/RoomPanel/RoomContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+
+[node name="RoomDescription" type="Label" parent="Margin/Layout/Body/RoomPanel/RoomContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 24
+autowrap_mode = 2
+
+[node name="Engage" type="Button" parent="Margin/Layout/Body/RoomPanel/RoomContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Engage patrol"
+
+[node name="InspectAccept" type="Button" parent="Margin/Layout/Body/RoomPanel/RoomContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Inspect"
+
+[node name="InspectLeave" type="Button" parent="Margin/Layout/Body/RoomPanel/RoomContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Leave / resolve room"
+
+[node name="CargoPanel" type="PanelContainer" parent="Margin/Layout/Body"]
+theme_override_styles/panel = SubResource("CompactPanel")
+layout_mode = 2
+custom_minimum_size = Vector2(790, 0)
+size_flags_horizontal = 3
+
+[node name="CargoContent" type="VBoxContainer" parent="Margin/Layout/Body/CargoPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Margin/Layout/Body/CargoPanel/CargoContent"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "CARGO / TWELVE SLOTS"
+
+[node name="InventoryGrid" type="GridContainer" parent="Margin/Layout/Body/CargoPanel/CargoContent"]
+unique_name_in_owner = true
+layout_mode = 2
+columns = 4
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+
+[node name="LootNotice" type="Label" parent="Margin/Layout/Body/CargoPanel/CargoContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 22
+autowrap_mode = 2
+
+[node name="UseCell" type="Button" parent="Margin/Layout/Body/CargoPanel/CargoContent"]
+theme_override_styles/normal = SubResource("CompactButton")
+theme_override_styles/disabled = SubResource("CompactButton")
+theme_override_styles/hover = SubResource("CompactButton")
+theme_override_styles/pressed = SubResource("CompactButton")
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Use selected power cell / +25 power"
+
+[node name="DiscardSlot" type="Button" parent="Margin/Layout/Body/CargoPanel/CargoContent"]
+theme_override_styles/normal = SubResource("CompactButton")
+theme_override_styles/disabled = SubResource("CompactButton")
+theme_override_styles/hover = SubResource("CompactButton")
+theme_override_styles/pressed = SubResource("CompactButton")
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Discard selected stack..."
+
+[node name="DiscardIncoming" type="Button" parent="Margin/Layout/Body/CargoPanel/CargoContent"]
+theme_override_styles/normal = SubResource("CompactButton")
+theme_override_styles/disabled = SubResource("CompactButton")
+theme_override_styles/hover = SubResource("CompactButton")
+theme_override_styles/pressed = SubResource("CompactButton")
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Leave incoming cargo..."
+
+[node name="Navigation" type="HBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="SkipCorridor" type="Button" parent="Margin/Layout/Navigation"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Skip corridor animation"
+
+[node name="EndTest" type="Button" parent="Margin/Layout/Navigation"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "End test / abandon to hub"
+
+[node name="Footer" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Connected rooms only. Events resolve once. No campaign rewards or saving yet. TAB focus / ENTER confirm / F11 fullscreen"
+
+[node name="DiscardConfirmation" type="ConfirmationDialog" parent="."]
+title = "Confirm cargo decision"
+ok_button_text = "Discard"
