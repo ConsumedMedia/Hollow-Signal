@@ -2,16 +2,116 @@
 
 ## Status — 2026-08-28
 
-Milestone 3 was requested after the GitHub upload and is implemented. Four actors per side now use rank-limited attacks, adjacent Move, universal Wait, and Speed plus seeded d6 initiative. Formation is separate from the round queue; defeated actors are removed, ranks close up, and dead queue entries are skipped. Import and native rules/integration/rendered checks passed. User acceptance of milestone 3 is pending.
+Milestone 4 is implemented after the user authorized the next milestone following the Close strike diagnostic. The battle now has Breacher, Technician, Ranger and Medic skills, five enemy archetypes across two patrols, healing/use limits, battle-local strain, protection, Exposed, Scorch and forced movement. Final import, native rules/integration/rendering checks passed. User acceptance of milestone 4 is pending.
 
-The worktree was clean at `4224ee1` before editing. Existing history, setup/navigation, shapes, engine, native test runner, and authored/runtime separation were retained. No dependencies or assets were installed. Godot remains **4.7.2 Standard / Compatibility**, project version `0.3.0-milestone-3`. No milestone 4 or later systems were started.
+Milestone 4 began at local commit `73c4eee`, with four uncommitted files from the earlier diagnostic (README, plan, progress and the smoke test). Preserved that work, history, navigation, original shapes, engine, native test runner and authored/runtime separation. No dependencies or assets were installed. Godot remains **4.7.2 Standard / Compatibility**, project version `0.4.0-milestone-4`. No milestone 5 or later systems were started.
 
 ## Completed milestones
 
 - Milestone 1: complete; user reported success on 2026-08-28. This is general user acceptance, not a claim that every individual manual step was reported separately.
 - Milestone 2: implementation and automated/rendered verification complete; user authorized moving to milestone 3, without separately reporting every manual check.
-- Milestone 3: implementation and automated/rendered verification complete; user playtest pending.
-- Milestones 4–13: not started or authorized.
+- Milestone 3: implementation and automated/rendered verification complete; user authorized proceeding to milestone 4 after the diagnostic. The earlier reported symptom was not reproduced or confirmed fixed.
+- Milestone 4: implementation and automated/rendered verification complete; user playtest pending.
+- Milestones 5–13: not started or authorized.
+
+## Milestone 4 — Actual verification
+
+### Implemented scope
+
+- Four authored classes, exactly three skills each, plus universal Move/Wait. Five enemy archetypes across Boarding and Signal patrols. Only four enemies occupy a battle.
+- Ordered effects after direct damage: healing, strain change, status and forced movement. Protected mitigates direct damage; Exposed enables the Ranger bonus; Scorch is the only DOT. Duration, stacking, rounding and resolution order are specified in COMBAT_RULES.md.
+- ActorState owns independent health, strain, use counts and StatusState objects. Resources hold values and descriptions only. Healing uses reset on fresh battle/restart/switch, and separate Medics do not share them.
+- Strain is battle-local to exercise the required Medic/strain enemy skills; persistence, Shaken, downed/death and power remain M5.
+- EnemyPolicy scores only shared legal commands. AI preference bonuses live in balance data. Forced movement preserves the round queue; lethal DOT is resolved before input and skips the removed actor.
+- Class-driven UI exposes the acting class, three skills, support targets, use counts, visible disabled reasons, modified target HP-loss ranges, strain/status counters and two patrols. Original shapes and native UI retained; no asset/dependency purchases, downloads or generation.
+- Prior diagnostic work was preserved. M3 fixtures and button-click regressions remain in the existing suites, alongside the new class tests. No test framework or extra test file was added.
+
+### Commands and results
+
+All commands below ran from `C:\Users\CRS-Workstation\Game Dev` in PowerShell, using the existing explicit 4.7.2 executable. Available Git, rg, shell, patching and native image inspection tools were used; no sub-agents or external apps were needed for M4.
+
+```powershell
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --import --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m4-import.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m4-rules.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m4-smoke.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m4-render.log' -- --capture
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --scene res://scenes/battle_test.tscn --quit-after 10 --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m4-start-battle.log'
+```
+
+Final results:
+
+| Check | Observed result |
+|---|---|
+| Import | Exit 0; no project errors |
+| Rules | 149 checks, 0 failures; engine errors 0; exit 0 |
+| Headless integration | 360 checks, 0 failures; exit 0 |
+| Rendered integration | 539 checks, 0 failures; exit 0 |
+| Independent battle scene start | Exit 0; no project errors (not a physical F6 check) |
+
+Rendering used OpenGL 3.3 / NVIDIA 591.86 / RTX 3080 / Compatibility. Integration checks the pinned version and Standard (not Mono). The renderer run produces 59 viewport PNGs: retained setup/M3 states plus all twelve class skill selections, both patrols, maximum status display and class-battle outcomes at both target sizes. Reviewed class battle, Medic heal, Expose, all-status display, Signal patrol and victory screenshots across the two sizes; text, buttons and target labels fit. Skill/status screenshot fixtures explicitly set health/strain/active turns to cover the UI; natural full battles and the README opening do not use those overrides.
+
+Rules coverage includes 64 original seed cases and 64 class-patrol cases (32 seeds per patrol, each replayed), plus targeted support/status/movement tests. Every automated enemy decision is checked for legality. Both patrols reach victory using the documented deterministic test policy (Boarding round 7, Signal round 8, both turn token 45), and defeat when all crew Wait. These outcomes demonstrate functionality, not final balance or user acceptance.
+
+The exact four-action README opening is also exercised through GUI clicks and natural turns: Ranger Covering shot at E4 → Technician Cutting beam at E1 → Breacher Brace on Medic → Medic Field patch on injured Ranger. All four expected actors and effects passed.
+
+Intentional failure checks:
+
+```powershell
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m4-negative-assert.log' -- --self-test-failure
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m4-negative-script.log' -- --self-test-script-error
+```
+
+Expected exit **1** confirmed for both: 150 checks / 1 intentional assertion failure; and 149 checks / 0 assertion failures / 1 intentionally injected in-memory parse error. No broken project script was written.
+
+After correcting the simulated mouse helper, repeated the rendered suite without screenshot pauses:
+
+```powershell
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m4-render-repeat.log'
+```
+
+Result: **362 checks, 0 failures, exit 0**, in addition to the final 539-check capture run and 360-check headless run. Clean-log searches across final import, rules, headless, rendered, repeat and standalone-start logs found no ERROR/WARNING/SCRIPT ERROR/FAIL lines (rg exit 1 means no matches). Intentional negative logs were excluded from that clean-log search. `git diff --check` and staged whitespace review passed; engine, cache, logs and screenshots were not staged.
+
+### Intermediate findings and limitations
+
+- Initial M4 import exited 1 without a project error in its output (`m4-import-initial.log`); final import passed. Cause remains unconfirmed, as noted for earlier intermittent imports.
+- First extended rules run caught deliberately invalid test fixtures sharing nested Effect/Status Resources through arrays. Fixed the test to duplicate those nested Resources explicitly before corrupting them. No authored files were corrupted. Final suite passes and includes independent runtime health/strain/use/status checks.
+- First layout run detected an 8-pixel width overflow from expanded actor cards. Reduced local card padding while retaining font size; reruns and rendered review pass.
+- Review added correct source attribution to DOT death events after the originating actor has died, with a regression.
+- A later rendered run caught 7 missed-click assertions; a temporary diagnostic run (`--path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m4-click-diagnostic.log' -- --diagnose-clicks`, same pinned executable) caught 8. Diagnostics showed synthetic hover becoming false between mouse down/up while the button rectangle stayed fixed and the real viewport mouse position was elsewhere. Updated the test helper to deliver motion/down/up together, with the correct button mask, before yielding frames. This retains native GUI hit testing and signals while avoiding desktop-pointer polling between synthetic gesture events. Removed the temporary diagnostics. This is a test-input correction, not a claimed fix for the user's earlier physical Close strike observation.
+- Physical mouse/keyboard/editor F5/F6/F8 and actual display/DPI readability remain user checks. No desktop automation or real editor gameplay was claimed for M4. The previously observed 4.7.1 editor is not the verified engine; use README's 4.7.2 launch path.
+- No export, other hardware, persistence, downed/death, Shaken, power, sound or future milestone work was tested. No claims of tactical enjoyment or final balancing.
+- Git diff/whitespace review includes the intended earlier diagnostic changes. Generated engine/cache/log/screenshot files remain ignored. The local checkpoint is titled `Implement milestone 4 class abilities and shared combat effects`; use `git log` for its hash. No GitHub push is authorized by this milestone request.
+
+
+## Close strike report — 2026-08-28
+
+User reports Close strike cannot be clicked even with crew at the front. Started from clean local milestone 3 commit `73c4eee` (`main` one commit ahead of `origin/main`). Read the Resources, rules, controller, UI connections and existing tests before editing. **Failure not reproduced; report remains open pending the user's diagnostic/screenshot. No gameplay or Resource changes made.**
+
+Subsequent update: the user authorized the next milestone without a screenshot or explicit reproduction result. M4 retains the button regressions with M3 fixtures and makes the acting class explicit. This is not evidence of a confirmed fix to the original report.
+
+Added mouse-input coverage to the existing `tests/setup_smoke.gd`, plus a short README diagnostic. Existing tests had exercised targets and direct selection calls, but not the complete Close strike button hit-test/selection path. New checks click disabled Strike, Wait, Move, Strike, and TARGET cards at both 1280x720 and 1920x1080; they also verify the next turn after moving forward. Buttons correctly follow the acting actor, not the location of other crew. Default C3 rank 3 can only shoot; one Wait reaches C1 rank 1 and enables Strike. Selecting Strike alone does not spend the action; clicking an enemy TARGET resolves damage.
+
+An initial new test run failed two assertions because it expected moved C3 to remain at rank 2. Observed C1 had been defeated while waiting for C3's next turn, compacting C3 to rank 1. Corrected that test expectation to allow either front rank; no production code changed. Final runs pass.
+
+### Actual commands and results
+
+PowerShell, project directory:
+
+```powershell
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/strike-diagnosis-baseline.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/strike-click-smoke.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --import --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/strike-import.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/strike-render.log' -- --capture
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/strike-rules.log'
+```
+
+- Unmodified baseline: 107 checks, 0 failures, exit 0.
+- Extended headless integration: 137 checks, 0 failures, exit 0 (final rerun).
+- Import: exit 0, no project errors.
+- Rendered integration: 202 checks, 0 failures, exit 0; Compatibility on the RTX 3080. Reviewed the new `battle_strike_selected` PNG at both sizes: C1 rank 1, Strike selected, Shot disabled, only enemy ranks 1/2 targetable, text/buttons unclipped.
+- Rules: 78 checks, 0 failures, no engine errors, exit 0.
+
+Computer-use inspection found the user's open editor is **Godot 4.7.1**, opening this same project folder. This version difference is observed, not established as the cause. An attempted editor F5 interaction was interrupted by detected user input; a subsequent observation failed to identify the foreground process. Physical editor/gameplay reproduction was not completed. The verified clicks above are native Godot simulated GUI input, not physical desktop clicks. Do not claim the user's issue is fixed or that 4.7.1 is verified. Restart/Wait/Strike/TARGET steps and the pinned editor launch command are in README.md. Test/document edits remain local and uncommitted pending clarification; nothing was pushed.
 
 ## Milestone 3 — Actual verification
 
@@ -316,16 +416,16 @@ Result: exit code 0; 13 milestone headings and 13 not-started statuses; exactly 
 
 ## Known issues and untested work
 
-- No known code defect found by current checks. The test attacks and balance are placeholders, not the final class abilities.
-- Milestone 3 physical keyboard/mouse input, editor F5/F6/F8 workflow, and display/DPI readability still need the user's README.md playtest. Automated GUI input and native screenshots are not a substitute for that.
+- Earlier user-reported Close strike issue was not reproduced. The user authorized proceeding; retained GUI regressions pass, but no confirmed fix to the physical observation is claimed.
+- Milestone 4 physical keyboard/mouse input, editor F5/F6/F8 workflow, display/DPI readability and tactical balance still need the user's README.md playtest. Automated GUI input and native screenshots are not a substitute for that.
 - Only this machine's NVIDIA Compatibility renderer was exercised. No Windows export or other hardware testing; exports remain milestone 13.
-- Earlier milestone imports occasionally exited 1 without printed errors. Both milestone 3 imports passed; report any future recurrence with its log.
-- No classes/statuses, downed/permanent death, strain/power, campaign, saving, audio, or later systems are implemented or tested. Zero HP currently removes the actor from this test only.
+- The first M4 import exited 1 without a printed project error; the final import passed. The same intermittent behavior occurred during earlier milestones. Cause remains unconfirmed; keep the log if it recurs.
+- No downed/permanent death, persistent strain/Shaken, power, campaign, saving, audio, or later systems are implemented or tested. Zero HP currently removes the actor from this battle only. M4 strain resets on restart/switch; it is not campaign state.
 - Determinism requires the same content, seed, commands, and pinned engine. Cross-version replay/save compatibility is not claimed.
-- Current milestone 3 changes are local until a further GitHub push is requested.
+- Milestone 3 and 4 checkpoints are local until a further GitHub push is requested. No push was performed during M4.
 
 ## Next steps
 
-1. Follow README.md's milestone 3 playtest, starting with C3 swapping with C2 to cross the front/rear boundary.
-2. Check rank-based targeting, initiative, removal, victory/defeat, restart, and both target resolutions; report any errors before another system.
-3. Start milestone 4 only when requested, using the existing ability Resources and rules as the foundation for class skills and enemy behaviours.
+1. Use the pinned Godot 4.7.2 editor and follow README.md's exact M4 opening: Ranger shoots E4, Technician beams E1, Breacher protects Medic, Medic heals Ranger.
+2. Check remaining class skills, status timing, limited healing, both patrols, outcomes, restart and both target resolutions. Send errors or screenshots with the actor/class/rank line if anything differs.
+3. Start milestone 5 only when explicitly requested: downed/death, persistent strain, Shaken, shared power and Overcharge. Preserve the effect/rules architecture and editable data.

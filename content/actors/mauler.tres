@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ActorDefinition" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://content/actor_definition.gd" id="1"]
+[ext_resource type="Script" path="res://content/ability_definition.gd" id="2"]
+[ext_resource type="Resource" path="res://content/abilities/maul.tres" id="maul"]
+[ext_resource type="Resource" path="res://content/abilities/scramble.tres" id="scramble"]
+
+[resource]
+script = ExtResource("1")
+id = &"mauler"
+display_name = "Hull Mauler"
+max_health = 22
+speed = 3
+abilities = Array[ExtResource("2")]([ExtResource("maul"), ExtResource("scramble")])

@@ -18,7 +18,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	create_timer(30.0).timeout.connect(func() -> void:
+	create_timer(60.0).timeout.connect(func() -> void:
 		printerr("SETUP SMOKE: timed out before completion")
 		quit(1))
 	var version: Dictionary = Engine.get_version_info()
@@ -87,13 +87,221 @@ func _run() -> void:
 		await _press_key(KEY_F11)
 		_check(root.mode == Window.MODE_WINDOWED, "F11 returns to windowed mode")
 
+	await _test_attack_button_clicks()
 	await _test_battle_flow()
+	await _test_class_battle_ui()
+	await _test_manual_opening()
 	_check(_monitor.error_count() == 0, "No engine errors during scene checks")
 	# Optional negative self-test proves this runner exits unsuccessfully.
 	if "--self-test-failure" in OS.get_cmdline_user_args():
 		_check(false, "Intentional failure to verify exit code")
 	print("SETUP SMOKE: %d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
+
+
+func _test_manual_opening() -> void:
+	await _open(BATTLE, false)
+	var controller: BattleController = current_scene.get_node("BattleController") as BattleController
+	controller.enemy_timer.wait_time = 0.001
+	# Exact beginner walkthrough: no state overrides or fabricated actor turns.
+	var actors: Array[StringName] = [&"crew_3", &"crew_2", &"crew_1", &"crew_4"]
+	var skills: Array[int] = [0, 0, 1, 1]
+	var targets: Array[StringName] = [&"enemy_4", &"enemy_1", &"crew_4", &"crew_3"]
+	for index: int in range(actors.size()):
+		await _await_player(controller)
+		_check(controller.state.active_actor_id == actors[index], "README opening reaches %s naturally" % actors[index])
+		await _click_button(current_scene.get_node(["%Strike", "%Shot", "%Skill3"][skills[index]]) as Button)
+		var target: ActorState = controller.state.get_actor(targets[index])
+		var hp: int = target.health
+		await _click_button(_slot(target.side, controller.state.get_rank(target.id)))
+		if index == 0:
+			_check(hp - target.health in range(6, 9), "README Covering shot damages the rear enemy")
+		elif index == 1:
+			_check(target.get_status(StatusDefinition.Kind.DAMAGE_OVER_TIME) != null and hp - target.health >= 4, "README Cutting beam applies Scorch")
+		elif index == 2:
+			_check(target.get_status(StatusDefinition.Kind.PROTECTION) != null, "README Brace protects the Medic")
+		else:
+			_check(target.health == target.definition.max_health and controller.state.get_actor(&"crew_4").uses[&"field_patch"] == 1,
+				"README Field patch restores the injured Ranger and spends one use")
+
+
+
+func _test_class_battle_ui() -> void:
+	for window_size: Vector2i in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
+		root.size = window_size
+		await _open(BATTLE, false)
+		var controller: BattleController = current_scene.get_node("BattleController") as BattleController
+		_check(controller.state.get_actor(&"crew_1").definition == ContentCatalogue.BREACHER
+			and controller.state.get_actor(&"crew_4").definition == ContentCatalogue.MEDIC, "Default battle contains the four different classes")
+		_check((current_scene.get_node("%TurnLabel") as Label).text.contains("Ranger"), "Acting class is explicit in the turn header")
+		_check_layout(BATTLE, window_size)
+		if "--capture" in OS.get_cmdline_user_args():
+			await _capture(BATTLE, window_size, "m4_default")
+		for crew_index: int in range(4):
+			for skill_index: int in range(3):
+				current_scene.call("restart_battle")
+				controller.enemy_timer.wait_time = 10.0
+				# Controlled fixture for button coverage; full-battle tests below use natural turns.
+				var actor_id: StringName = StringName("crew_%d" % (crew_index + 1))
+				var actor: ActorState = controller.state.get_actor(actor_id)
+				for crew_id: StringName in controller.state.crew_ranks:
+					var crew: ActorState = controller.state.get_actor(crew_id)
+					crew.health -= 8
+					crew.strain = 40
+				_fixture_player_turn(controller, actor_id)
+				await _settle()
+				var ability: AbilityDefinition = actor.definition.abilities[skill_index]
+				var button: Button = current_scene.get_node(["%Strike", "%Shot", "%Skill3"][skill_index]) as Button
+				# Fallback is legal at the Ranger's initial rank 3; every class skill is usable in this fixture.
+				_check(button.visible and not button.disabled and button.text.contains(ability.display_name), "Class button ready: %s" % ability.display_name)
+				await _click_button(button)
+				_check(current_scene.get("selected_action") == ability.id, "GUI selects class skill: %s" % ability.display_name)
+				var command: ActionCommand = null
+				for candidate: ActionCommand in CombatRules.get_legal_actions(controller.state, actor_id):
+					if candidate.action_id == ability.id:
+						command = candidate
+						break
+				_check(command != null, "Selected class skill has a legal target")
+				if command == null:
+					continue
+				var target: ActorState = controller.state.get_actor(command.target_ids[0])
+				var card: Button = _slot(target.side, controller.state.get_rank(target.id))
+				_check(not card.disabled and card.text.contains("TARGET"), "Support and attack targets are labelled and clickable")
+				_check_layout(BATTLE, window_size)
+				if "--capture" in OS.get_cmdline_user_args():
+					await _capture(BATTLE, window_size, "m4_" + String(ability.id))
+				var before_turn: int = controller.state.turn_number
+				await _click_button(card)
+				_check(controller.state.turn_number == before_turn + 1 and actor.uses.get(ability.id, 0) == 1,
+					"GUI resolves the class skill once: %s" % ability.display_name)
+				if ability.id == &"field_patch":
+					_fixture_player_turn(controller, actor_id)
+					await _settle()
+					_check(button.text.contains("1 left"), "Healing button displays the remaining battle use")
+		# Maximum status/strain display uses isolated state, not modified Resources.
+		current_scene.call("restart_battle")
+		for actor: ActorState in controller.state.actors:
+			actor.strain = 100
+			for status: StatusDefinition in [ContentCatalogue.BREACHER.abilities[1].effects[0].status,
+				ContentCatalogue.TECHNICIAN.abilities[1].effects[0].status, ContentCatalogue.TECHNICIAN.abilities[0].effects[0].status]:
+				actor.statuses.append(StatusState.new(status, actor))
+		controller.state_changed.emit()
+		await _settle()
+		_check_layout(BATTLE, window_size)
+		_check(_slot(ActorState.Team.CREW, 1).text.contains("P2 X2 D2"), "All three status counters and maximum strain fit on the actor card")
+		if "--capture" in OS.get_cmdline_user_args():
+			await _capture(BATTLE, window_size, "m4_statuses")
+		await _click_button(current_scene.get_node("%Encounter") as Button)
+		_check(controller.state.get_actor(&"enemy_3").definition == ContentCatalogue.CHORISTER
+			and controller.state.get_actor(&"crew_4").uses.is_empty(), "Switching patrol introduces the strain enemy and resets battle state")
+		_check_layout(BATTLE, window_size)
+		if "--capture" in OS.get_cmdline_user_args():
+			await _capture(BATTLE, window_size, "m4_signal_patrol")
+
+	for patrol: bool in [false, true]:
+		await _open(BATTLE, false)
+		var controller: BattleController = current_scene.get_node("BattleController") as BattleController
+		if patrol:
+			await _click_button(current_scene.get_node("%Encounter") as Button)
+		controller.enemy_timer.wait_time = 0.001
+		await _play_class_battle(controller, false)
+		_check(controller.state.outcome == &"victory", "Class party wins through UI commands against patrol %s" % patrol)
+		await _check_outcome_layout("m4_victory_" + str(patrol))
+		print("M4 UI VICTORY ", patrol, ": round ", controller.state.round_number, " / turns ", controller.state.turn_number)
+		current_scene.call("restart_battle")
+		await _play_class_battle(controller, true)
+		_check(controller.state.outcome == &"defeat", "Waiting loses the class battle against patrol %s" % patrol)
+		await _check_outcome_layout("m4_defeat_" + str(patrol))
+
+
+func _fixture_player_turn(controller: BattleController, actor_id: StringName) -> void:
+	controller.state.round_order.erase(actor_id)
+	controller.state.round_order.push_front(actor_id)
+	controller.state.turn_cursor = 0
+	controller.state.active_actor_id = actor_id
+	controller.call("_sync_phase")
+
+
+func _play_class_battle(controller: BattleController, waits: bool) -> void:
+	for index: int in range(300):
+		await _await_player(controller)
+		if controller.state.outcome != &"ongoing":
+			return
+		if waits:
+			(current_scene.get_node("%Wait") as Button).pressed.emit()
+		else:
+			var command: ActionCommand = EnemyPolicy.choose_action(controller.state)
+			if command.action_id == &"wait":
+				(current_scene.get_node("%Wait") as Button).pressed.emit()
+			else:
+				current_scene.call("select_action", command.action_id)
+				var target: ActorState = controller.state.get_actor(command.target_ids[0])
+				_slot(target.side, controller.state.get_rank(target.id)).pressed.emit()
+		await _settle()
+	_check(false, "Class battle did not finish")
+
+
+
+func _test_attack_button_clicks() -> void:
+	# Exercise GUI hit testing and pressed connections, not direct select_action calls.
+	for window_size: Vector2i in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
+		root.size = window_size
+		await _open(BATTLE)
+		var controller: BattleController = current_scene.get_node("BattleController") as BattleController
+		controller.enemy_timer.wait_time = 0.001
+		var strike: Button = current_scene.get_node("%Strike") as Button
+		var shot: Button = current_scene.get_node("%Shot") as Button
+		var move: Button = current_scene.get_node("%Move") as Button
+		var wait_button: Button = current_scene.get_node("%Wait") as Button
+		_check(controller.state.active_actor_id == &"crew_3" and controller.state.get_rank(&"crew_3") == 3
+			and strike.disabled and not shot.disabled, "Initial rear actor can shoot but cannot Close strike")
+		await _click_button(strike)
+		_check(current_scene.get("selected_action") == &"shot" and controller.state.turn_number == 0,
+			"Clicking a disabled Close strike does not change selection or spend an action")
+		await _click_button(wait_button)
+		_check(controller.state.active_actor_id == &"crew_1" and controller.state.get_rank(&"crew_1") == 1
+			and not strike.disabled and shot.disabled, "One GUI Wait reaches C1 at rank 1 and enables Close strike")
+		await _click_button(move)
+		_check(current_scene.get("selected_action") == &"move", "GUI Move click changes the selected ability")
+		await _click_button(strike)
+		_check(current_scene.get("selected_action") == &"strike" and controller.state.turn_number == 1,
+			"GUI Close strike click selects the attack without spending the action")
+		_check(not _slot(ActorState.Team.ENEMY, 1).disabled and not _slot(ActorState.Team.ENEMY, 2).disabled
+			and _slot(ActorState.Team.ENEMY, 3).disabled and _slot(ActorState.Team.ENEMY, 4).disabled,
+			"Selected Close strike enables only enemy ranks 1 and 2")
+		_check_layout(BATTLE, window_size)
+		if "--capture" in OS.get_cmdline_user_args():
+			await _capture(BATTLE, window_size, "battle_strike_selected")
+		var target: ActorState = controller.state.actor_at(ActorState.Team.ENEMY, 1)
+		var health_before: int = target.health
+		await _click_button(_slot(ActorState.Team.ENEMY, 1))
+		_check(health_before - target.health in range(6, 9) and controller.state.turn_number == 2,
+			"Close strike GUI target click deals damage and spends exactly one action")
+
+		await _click_button(current_scene.get_node("%Restart") as Button)
+		await _click_button(move)
+		await _click_button(_slot(ActorState.Team.CREW, 2))
+		_check(controller.state.get_rank(&"crew_3") == 2 and controller.state.active_actor_id == &"crew_1",
+			"Moving C3 forward ends C3's turn; the buttons now belong to C1")
+		await _click_button(wait_button)
+		_check(controller.state.active_actor_id == &"crew_2" and controller.state.get_rank(&"crew_2") == 3
+			and strike.disabled and not shot.disabled, "Swapped-back C2 must shoot even while C3 is at the front")
+		for attempt: int in range(16):
+			await _await_player(controller)
+			if controller.state.active_actor_id == &"crew_3":
+				break
+			await _click_button(wait_button)
+		print("STRIKE AFTER MOVE: active=", controller.state.active_actor_id, " / rank=", controller.state.get_rank(&"crew_3"),
+			" / crew=", controller.state.crew_ranks, " / disabled=", strike.disabled)
+		_check(controller.state.active_actor_id == &"crew_3" and controller.state.get_rank(&"crew_3") in [1, 2]
+			and not strike.disabled and shot.disabled, "Moved C3 can Close strike when its next turn arrives")
+		await _click_button(move)
+		await _click_button(strike)
+		_check(current_scene.get("selected_action") == &"strike", "GUI Close strike remains selectable after moving forward")
+		target = controller.state.actor_at(ActorState.Team.ENEMY, 1)
+		health_before = target.health
+		await _click_button(_slot(ActorState.Team.ENEMY, 1))
+		_check(health_before - target.health in range(6, 9), "Moved actor's Close strike damages a target through GUI input")
 
 
 func _test_battle_flow() -> void:
@@ -269,10 +477,17 @@ func _check_outcome_layout(artifact_name: String) -> void:
 			await _capture(BATTLE, window_size, artifact_name)
 
 
-func _open(scene_path: String) -> void:
+func _open(scene_path: String, legacy_fixture: bool = true) -> void:
 	var result: Error = change_scene_to_file(scene_path)
 	_check(result == OK, "Load %s" % scene_path)
 	await _settle()
+	if scene_path == BATTLE and legacy_fixture:
+		# Preserve M3 regressions against their original two-skill content.
+		var controller: BattleController = current_scene.get_node("BattleController") as BattleController
+		controller.crew_definitions = [ContentCatalogue.TEST_CREW, ContentCatalogue.TEST_CREW, ContentCatalogue.TEST_CREW, ContentCatalogue.TEST_CREW]
+		controller.enemy_definitions = [ContentCatalogue.TEST_ENEMY, ContentCatalogue.TEST_ENEMY, ContentCatalogue.TEST_ENEMY, ContentCatalogue.TEST_ENEMY]
+		current_scene.call("restart_battle")
+		await _settle()
 
 
 func _settle() -> void:
@@ -302,13 +517,17 @@ func _click_button(button: Button) -> void:
 	var motion: InputEventMouseMotion = InputEventMouseMotion.new()
 	motion.position = centre
 	root.push_input(motion, true)
+	# Keep the synthetic gesture together. Yielding between down/up lets the
+	# rendered window re-evaluate hover using the unrelated desktop cursor.
+	# Both events still pass through Godot's GUI hit testing and button signals.
 	for pressed: bool in [true, false]:
 		var click: InputEventMouseButton = InputEventMouseButton.new()
 		click.position = centre
 		click.button_index = MOUSE_BUTTON_LEFT
+		click.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
 		click.pressed = pressed
 		root.push_input(click, true)
-		await _settle()
+	await _settle()
 
 
 func _capture(scene_path: String, window_size: Vector2i, artifact_name: String = "") -> void:

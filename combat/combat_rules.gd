@@ -3,16 +3,18 @@ extends RefCounted
 ## All gameplay mutations and random rolls are here. No SceneTree dependency.
 
 const MAX_RANKS: int = 4
+const BALANCE: CombatBalance = preload("res://content/balance.tres")
 
 
 static func create_battle(crew: Array[ActorDefinition], enemy: Array[ActorDefinition],
 		rng: RandomNumberGenerator) -> CombatState:
-	if rng == null or crew.size() > MAX_RANKS or enemy.size() > MAX_RANKS:
+	if rng == null or crew.size() > MAX_RANKS or enemy.size() > MAX_RANKS or BALANCE.strain_max <= 0:
 		return null
 	for definition: ActorDefinition in crew + enemy:
 		if definition == null or not definition.is_valid():
 			return null
 	var state: CombatState = CombatState.new()
+	state.balance = BALANCE
 	for index: int in range(crew.size()):
 		var actor: ActorState = ActorState.new(StringName("crew_%d" % (index + 1)), crew[index], ActorState.Team.CREW)
 		state.actors.append(actor)
@@ -59,13 +61,38 @@ static func ability_reason(state: CombatState, actor_id: StringName, ability_id:
 		return "Unknown ability."
 	if not ability.is_valid():
 		return "Invalid ability definition."
+	if ability.max_uses > 0 and actor.uses.get(ability.id, 0) >= ability.max_uses:
+		return "No uses left this battle."
 	var rank: int = state.get_rank(actor_id)
 	if rank not in ability.actor_ranks:
 		return "Needs actor ranks %s; current rank %d." % [rank_text(ability.actor_ranks), rank]
 	for target: ActorState in state.actors:
-		if target.side != actor.side and target.is_conscious() and state.get_rank(target.id) in ability.target_ranks:
+		if _target_reason(state, actor, target, ability).is_empty():
 			return ""
-	return "No opponent in target ranks %s." % rank_text(ability.target_ranks)
+	return "No eligible %s in ranks %s (check HP, strain or space)." % [
+		"ally" if ability.target_team == AbilityDefinition.TargetTeam.ALLY else "enemy", rank_text(ability.target_ranks)]
+
+
+static func _target_reason(state: CombatState, actor: ActorState, target: ActorState, ability: AbilityDefinition) -> String:
+	if not target.is_conscious():
+		return "Target is defeated."
+	var same_team: bool = actor.side == target.side
+	if same_team != (ability.target_team == AbilityDefinition.TargetTeam.ALLY):
+		return "Wrong target team."
+	if actor.id == target.id and not ability.allow_self:
+		return "Choose another ally."
+	if state.get_rank(target.id) not in ability.target_ranks:
+		return "Target needs ranks %s." % rank_text(ability.target_ranks)
+	if ability.damage_max == 0 and ability.effects.size() == 1:
+		var effect: EffectDefinition = ability.effects[0]
+		var recipient: ActorState = actor if effect.on_actor else target
+		if effect.kind == EffectDefinition.Kind.HEAL and recipient.health >= recipient.definition.max_health:
+			return "Target already has full health."
+		if effect.kind == EffectDefinition.Kind.STRAIN and effect.amount < 0 and recipient.strain == 0:
+			return "Target has no strain."
+		if effect.kind == EffectDefinition.Kind.DISPLACE and _destination(state, recipient, effect.amount) == state.get_rank(recipient.id):
+			return "No room to move the target."
+	return ""
 
 
 static func rank_text(ranks: Array[int]) -> String:
@@ -102,11 +129,7 @@ static func validate_action(state: CombatState, command: ActionCommand) -> Strin
 	if not reason.is_empty():
 		return reason
 	var ability: AbilityDefinition = actor.definition.get_ability(command.action_id)
-	if target.side == actor.side:
-		return "Attack needs an opponent."
-	if state.get_rank(target.id) not in ability.target_ranks:
-		return "Target must be in enemy ranks %s." % rank_text(ability.target_ranks)
-	return ""
+	return _target_reason(state, actor, target, ability)
 
 
 static func resolve_action(state: CombatState, command: ActionCommand, rng: RandomNumberGenerator) -> Array[CombatEvent]:
@@ -131,33 +154,125 @@ static func resolve_action(state: CombatState, command: ActionCommand, rng: Rand
 	else:
 		var target: ActorState = state.get_actor(command.target_ids[0])
 		var ability: AbilityDefinition = actor.definition.get_ability(command.action_id)
-		var damage: int = mini(target.health, rng.randi_range(ability.damage_min, ability.damage_max))
-		target.health -= damage
-		var hit: CombatEvent = _event(&"damage", actor, target)
-		hit.amount = damage
-		hit.health_after = target.health
-		events.append(hit)
-		if not target.is_conscious():
-			var defeated: CombatEvent = _event(&"defeated", actor, target)
-			defeated.target_rank = state.get_rank(target.id)
-			events.append(defeated)
-			state.get_ranks(target.side).erase(target.id)
-			state.actors.erase(target)
-			var compacted: CombatEvent = _event(&"ranks_compacted", actor)
-			compacted.team = target.side
-			compacted.rank_ids = state.get_ranks(target.side).duplicate()
-			events.append(compacted)
+		actor.uses[ability.id] = actor.uses.get(ability.id, 0) + 1
+		if ability.damage_max > 0:
+			var rolled: int = rng.randi_range(ability.damage_min, ability.damage_max)
+			_damage(state, actor, target, adjusted_damage(target, ability, rolled), events)
+		for effect: EffectDefinition in ability.effects:
+			var recipient: ActorState = actor if effect.on_actor else target
+			if state.get_actor(recipient.id) != null:
+				_apply_effect(state, actor, recipient, effect, events)
+		for event: CombatEvent in events:
+			event.ability_name = ability.display_name
 
 	state.turn_number += 1
-	state.outcome = _get_outcome(state)
-	if state.outcome != &"ongoing":
-		state.active_actor_id = &""
-		var ended: CombatEvent = CombatEvent.new(&"battle_ended")
-		ended.outcome = state.outcome
-		events.append(ended)
+	if _finish_outcome(state, events):
 		return events
 	_advance_turn(state, rng, events)
 	return events
+
+
+static func adjusted_damage(target: ActorState, ability: AbilityDefinition, rolled: int) -> int:
+	var multiplier: float = ability.exposed_multiplier if target.get_status(StatusDefinition.Kind.EXPOSE) != null else 1.0
+	var protection: StatusState = target.get_status(StatusDefinition.Kind.PROTECTION)
+	if protection != null:
+		multiplier *= 1.0 - protection.definition.magnitude / 100.0
+	return maxi(0, floori(rolled * multiplier))
+
+
+static func _damage(state: CombatState, source: ActorState, target: ActorState, amount: int,
+		events: Array[CombatEvent], dot: StatusState = null) -> void:
+	var damage: int = mini(target.health, amount)
+	target.health -= damage
+	var hit: CombatEvent = _event(&"damage" if dot == null else &"dot_damage", source, target)
+	if dot != null:
+		hit.source_id = dot.source_id
+		hit.source_name = dot.source_name
+		hit.status_name = dot.definition.display_name
+	hit.amount = damage
+	hit.health_after = target.health
+	events.append(hit)
+	if not target.is_conscious():
+		var defeated: CombatEvent = _event(&"defeated", source, target)
+		defeated.source_id = hit.source_id
+		defeated.source_name = hit.source_name
+		defeated.target_rank = state.get_rank(target.id)
+		events.append(defeated)
+		state.get_ranks(target.side).erase(target.id)
+		state.actors.erase(target)
+		var compacted: CombatEvent = _event(&"ranks_compacted", source)
+		compacted.team = target.side
+		compacted.rank_ids = state.get_ranks(target.side).duplicate()
+		events.append(compacted)
+
+
+static func _apply_effect(state: CombatState, source: ActorState, target: ActorState,
+		effect: EffectDefinition, events: Array[CombatEvent]) -> void:
+	match effect.kind:
+		EffectDefinition.Kind.HEAL:
+			var healed: CombatEvent = _event(&"healed", source, target)
+			healed.amount = mini(effect.amount, target.definition.max_health - target.health)
+			target.health += healed.amount
+			healed.health_after = target.health
+			events.append(healed)
+		EffectDefinition.Kind.STRAIN:
+			var changed: CombatEvent = _event(&"strain_changed", source, target)
+			var next_strain: int = clampi(target.strain + effect.amount, 0, state.balance.strain_max)
+			changed.amount = next_strain - target.strain
+			target.strain = next_strain
+			changed.strain_after = next_strain
+			events.append(changed)
+		EffectDefinition.Kind.STATUS:
+			# One instance per kind: replace/refresh, never add stacks or durations.
+			var previous: StatusState = target.get_status(effect.status.kind)
+			if previous != null:
+				target.statuses.erase(previous)
+			target.statuses.append(StatusState.new(effect.status, source))
+			var applied: CombatEvent = _event(&"status_applied", source, target)
+			applied.status_name = effect.status.display_name
+			applied.duration = effect.status.duration
+			events.append(applied)
+		EffectDefinition.Kind.DISPLACE:
+			var moved: CombatEvent = _event(&"displaced", source, target)
+			moved.source_rank = state.get_rank(target.id)
+			moved.target_rank = _destination(state, target, effect.amount)
+			var ranks: Array[StringName] = state.get_ranks(target.side)
+			ranks.erase(target.id)
+			ranks.insert(moved.target_rank - 1, target.id)
+			moved.rank_ids = ranks.duplicate()
+			moved.team = target.side
+			events.append(moved)
+
+
+static func _destination(state: CombatState, target: ActorState, distance: int) -> int:
+	return clampi(state.get_rank(target.id) + distance, 1, state.get_ranks(target.side).size())
+
+
+static func _start_turn_effects(state: CombatState, actor: ActorState, events: Array[CombatEvent]) -> void:
+	# DOT ticks before any selection; ordinary statuses expire before selection too.
+	var dot: StatusState = actor.get_status(StatusDefinition.Kind.DAMAGE_OVER_TIME)
+	if dot != null:
+		_damage(state, actor, actor, dot.definition.magnitude, events, dot)
+	if not actor.is_conscious():
+		return
+	for status: StatusState in actor.statuses.duplicate():
+		status.remaining -= 1
+		if status.remaining == 0:
+			actor.statuses.erase(status)
+			var expired: CombatEvent = _event(&"status_expired", actor, actor)
+			expired.status_name = status.definition.display_name
+			events.append(expired)
+
+
+static func _finish_outcome(state: CombatState, events: Array[CombatEvent]) -> bool:
+	state.outcome = _get_outcome(state)
+	if state.outcome == &"ongoing":
+		return false
+	state.active_actor_id = &""
+	var ended: CombatEvent = CombatEvent.new(&"battle_ended")
+	ended.outcome = state.outcome
+	events.append(ended)
+	return true
 
 
 static func _start_round(state: CombatState, rng: RandomNumberGenerator) -> void:
@@ -182,23 +297,30 @@ static func _start_round(state: CombatState, rng: RandomNumberGenerator) -> void
 
 
 static func _advance_turn(state: CombatState, rng: RandomNumberGenerator, events: Array[CombatEvent]) -> void:
-	state.turn_cursor += 1
-	while state.turn_cursor < state.round_order.size():
-		var actor: ActorState = state.get_actor(state.round_order[state.turn_cursor])
-		if actor != null and actor.is_conscious():
-			state.active_actor_id = actor.id
-			break
+	while state.outcome == &"ongoing":
 		state.turn_cursor += 1
-	if state.turn_cursor == state.round_order.size():
-		state.round_number += 1
-		_start_round(state, rng)
-		var round_event: CombatEvent = CombatEvent.new(&"round_started")
-		round_event.round_number = state.round_number
-		round_event.rank_ids = state.round_order.duplicate()
-		events.append(round_event)
-	var next_turn: CombatEvent = _event(&"turn_started", state.get_actor(state.active_actor_id))
-	next_turn.round_number = state.round_number
-	events.append(next_turn)
+		if state.turn_cursor >= state.round_order.size():
+			state.round_number += 1
+			_start_round(state, rng)
+			var round_event: CombatEvent = CombatEvent.new(&"round_started")
+			round_event.round_number = state.round_number
+			round_event.rank_ids = state.round_order.duplicate()
+			events.append(round_event)
+		var actor: ActorState = state.get_actor(state.round_order[state.turn_cursor])
+		if actor == null or not actor.is_conscious():
+			continue
+		state.active_actor_id = actor.id
+		_start_turn_effects(state, actor, events)
+		if not actor.is_conscious():
+			state.turn_number += 1
+		if _finish_outcome(state, events):
+			return
+		if not actor.is_conscious():
+			continue
+		var next_turn: CombatEvent = _event(&"turn_started", actor)
+		next_turn.round_number = state.round_number
+		events.append(next_turn)
+		return
 
 
 static func _event(kind: StringName, source: ActorState, target: ActorState = null) -> CombatEvent:

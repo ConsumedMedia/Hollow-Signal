@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="AbilityDefinition" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://content/ability_definition.gd" id="1"]
+[ext_resource type="Script" path="res://content/effect_definition.gd" id="2"]
+[ext_resource type="Resource" path="res://content/statuses/protected.tres" id="protected"]
+
+[sub_resource type="Resource" id="Effect0"]
+script = ExtResource("2")
+kind = 2
+amount = 0
+on_actor = false
+status = ExtResource("protected")
+
+[resource]
+script = ExtResource("1")
+id = &"brace"
+display_name = "Brace"
+actor_ranks = Array[int]([1, 2])
+target_ranks = Array[int]([1, 2, 3, 4])
+damage_min = 0
+damage_max = 0
+target_team = 1
+allow_self = false
+max_uses = 0
+exposed_multiplier = 1.0
+description = "Protect an ally: halve direct damage for 2 of their turn starts. Scorch ignores protection."
+effects = Array[ExtResource("2")]([SubResource("Effect0")])

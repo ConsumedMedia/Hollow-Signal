@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="AbilityDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://content/ability_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"maul"
+display_name = "Shear"
+actor_ranks = Array[int]([1, 2])
+target_ranks = Array[int]([1, 2])
+damage_min = 5
+damage_max = 7
+target_team = 0
+allow_self = true
+max_uses = 0
+exposed_multiplier = 1.0
+description = "Front-line damage."

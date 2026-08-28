@@ -13,6 +13,8 @@ enum Phase { PLAYER_INPUT, RESOLVING, ENEMY_TURN, FINISHED }
 var state: CombatState
 var phase: Phase = Phase.FINISHED
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var crew_definitions: Array[ActorDefinition] = ContentCatalogue.crew_party()
+var enemy_definitions: Array[ActorDefinition] = ContentCatalogue.enemy_party()
 var _generation: int = 0
 var _last_input_frame: int = -1
 
@@ -24,12 +26,7 @@ func start_battle() -> void:
 	enemy_timer.stop()
 	_last_input_frame = -1
 	rng.seed = battle_seed
-	var crew: Array[ActorDefinition] = []
-	var enemy: Array[ActorDefinition] = []
-	for rank: int in range(CombatRules.MAX_RANKS):
-		crew.append(ContentCatalogue.TEST_CREW)
-		enemy.append(ContentCatalogue.TEST_ENEMY)
-	state = CombatRules.create_battle(crew, enemy, rng)
+	state = CombatRules.create_battle(crew_definitions, enemy_definitions, rng)
 	if state == null:
 		phase = Phase.FINISHED
 		setup_failed.emit("Cannot start: check the actor and ability Resources in content.")
@@ -55,14 +52,7 @@ func submit_player_action(action_id: StringName, target_id: StringName, expected
 func _on_enemy_delay_timeout() -> void:
 	if phase != Phase.ENEMY_TURN or state == null:
 		return
-	var legal: Array[ActionCommand] = CombatRules.get_legal_actions(state, state.active_actor_id)
-	var command: ActionCommand = null
-	for candidate: ActionCommand in legal:
-		if candidate.action_id not in [&"move", &"wait"]:
-			command = candidate
-			break
-		if candidate.action_id == &"wait":
-			command = candidate
+	var command: ActionCommand = EnemyPolicy.choose_action(state)
 	if command == null:
 		phase = Phase.FINISHED
 		setup_failed.emit("No legal enemy action. Restart the test battle.")

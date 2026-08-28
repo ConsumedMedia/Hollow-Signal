@@ -1,85 +1,115 @@
-# Milestone 3 combat contract
+# Milestone 4 combat contract
 
-This is the current four-position increment. The two shared prototype attacks are not the four class kits. No status, strain, power, permanent loss, or persistent campaign state is included.
+Four classes, twelve class abilities, five enemy archetypes, and shared battle effects. M3 initiative, formation, Move, Wait, input guards and outcome rules remain. No persistent strain, Shaken, downed/revival, permanent death, power, campaign or save system yet.
 
 ## Ownership and flow
 
-`Player selection / enemy choice → ActionCommand → CombatRules + CombatState + RNG → ordered CombatEvents → text and shapes`
+`Player / EnemyPolicy → ActionCommand → CombatRules + CombatState + RNG → ordered CombatEvents → interface`
 
-| Object/file | Responsibility |
+- Authored Resources: ActorDefinition (HP, Speed, skills), AbilityDefinition (ranks, target team, damage, uses, conditional multiplier, description and ordered effects), EffectDefinition (healing, strain, status or displacement), StatusDefinition (kind, duration, magnitude), CombatBalance (strain cap and AI preference bonuses). The catalogue explicitly preloads every class and enemy; Resources explicitly reference skills and statuses.
+- ActorState owns health, battle-local strain, per-ability use counts and StatusState instances. StatusState owns remaining turn starts and source identity. Shared Resources never receive runtime counters. A new battle constructs new instances and resets all of these fields.
+- CombatState holds actors, formation arrays, round order, initiative, turn token, outcome and a read-only reference to balance data. Stable IDs C1–C4/E1–E4 follow actors, not ranks.
+- CombatEvent contains value snapshots, including ability/status names, health/strain changes, status duration and ranks. DOT attribution survives its source's removal.
+- The controller owns the RNG and pacing Timer. The screen reads state and events only. Rules, effects and enemy preferences have no scene, animation or sound dependencies.
+
+M3 test actor/skill Resources remain solely as regression fixtures. They are not the playable class kits.
+
+## Authored class abilities
+
+Rank arrays run from the front (1) outward. “All” means occupied ranks 1–4. All skills take one target and spend one action. Move and Wait are additional universal actions.
+
+| Class (HP / Speed) | Ability | Actor ranks | Target | Default effect |
+|---|---|---|---|---|
+| Breacher (34 / 5) | Close strike | 1–2 | Enemy 1–2 | 6–8 damage |
+| Breacher | Brace | 1–2 | Another ally, all | Protected for 2 target turn starts |
+| Breacher | Ram | 1–2 | Enemy 1–2 | 4–6 damage, then push back 1 |
+| Ranger (28 / 6) | Covering shot | 3–4 | Enemy all | 6–8 damage |
+| Ranger | Exploit signal | 2–4 | Enemy all | 5–7; x1.5 if Exposed |
+| Ranger | Fallback shot | 1–3 | Enemy all | 4–6, then move self back 1 |
+| Technician (26 / 7) | Cutting beam | 2–3 | Enemy 1–3 | 4–6, then Scorch |
+| Technician | Expose | 2–4 | Enemy all | Exposed for 2 target turn starts |
+| Technician | Tractor pull | 2–4 | Enemy 2–4 | Pull forward 1 |
+| Medic (24 / 4) | Needle dart | 2–4 | Enemy all | 3–4 damage |
+| Medic | Field patch | 3–4 | Ally all, including self | Heal 8; 2 uses per actor per battle |
+| Medic | Steady voice | 2–4 | Ally all, including self | Reduce strain by 20 |
+
+Field patch rejects full-health targets and never exceeds maximum HP. Steady voice rejects targets at zero strain. Invalid commands spend neither action, use nor randomness. A shared Medic definition does not imply shared uses. All combat actors at zero HP are still removed immediately; healing cannot resurrect removed actors in M4.
+
+The party begins C1 Breacher / C2 Technician / C3 Ranger / C4 Medic. Thus the class order differs from the order of rows above.
+
+## Status timing and stacking
+
+| Status / card code | Effect | Default duration |
+|---|---|---|
+| Protected / P | Reduce incoming direct damage by 50%; no redirection or protection chains | 2 recipient turn starts |
+| Exposed / X | Marker enabling Exploit signal's bonus; ordinary attacks are unchanged | 2 recipient turn starts |
+| Scorch / D | 2 damage before the recipient chooses an action; ignores Protected and Exposed | 2 ticks at recipient turn starts |
+
+A freshly applied status has remaining = 2. At the recipient's next turn start, Scorch ticks first (if present), then every remaining status decrements to 1. At the following turn start, Scorch ticks again, then statuses reach zero and expire **before input**. A duration-1 ordinary status therefore expires at the next recipient turn start. Nothing decrements merely because the caster ended an action.
+
+There is at most one status of each kind per actor. Reapplication **replaces** the old instance, strength and source with the new authored definition and resets the countdown; it does not sum damage, duration or protection. Different kinds coexist. Moving does not tick statuses. A status remains after its source dies. On lethal Scorch, remove the recipient, compact ranks, check victory/defeat and skip its input entirely. Removed actors need no expiry events.
+
+The UI displays short codes plus counts, a visible legend and full names on hover. Applied, expired and DOT events also appear in the rolling log.
+
+## Damage and effect order
+
+Direct attacks automatically hit. Roll one inclusive integer in Damage Min–Max. If the target is Exposed, apply the ability's Exposed Multiplier (1.0 for all except Exploit signal's 1.5). If Protected, multiply by `1 - magnitude / 100`. **Floor once after multiplying all direct-damage modifiers**, clamp at zero, then cap at the target's current HP.
+
+Examples: 7 with protection → 3; Exploit's roll 7 against Exposed → 10; both together → floor(7 x 1.5 x 0.5) = 5. The interface shows base range on the ability and current per-target HP-loss ranges beneath the description. DOT has fixed authored damage; healing and strain do not roll.
+
+For each accepted command:
+
+1. Validate turn token, active actor, rank, target/team/self restrictions and use limit before mutation or RNG.
+2. Wait emits its event. Universal Move swaps adjacent allies and emits their original ranks and new formation.
+3. A class/enemy ability increments the acting instance's use counter. Apply optional direct damage once; emit damage, and immediately remove/compact if lethal.
+4. Apply secondary effects **in Resource array order**: healing, strain, status, or displacement. An effect aimed at a removed target is skipped; an effect on a surviving caster still applies (e.g. Fallback after a killing shot).
+5. Healing caps at max HP. Strain clamps to 0–100 from balance data. Only battle-local strain exists; 100 has no Shaken effect in M4.
+6. Increment the turn token, check outcome, then advance the round queue, skipping removed actors.
+7. At each new actor turn, resolve Scorch and status expiry before emitting turn_started or offering commands. A lethal start-of-turn tick advances the token too, invalidating old requests.
+8. Emit battle_ended and clear the active ID on victory/defeat; no conscious crew takes precedence, including simultaneous absence.
+
+Only direct damage and round initiative consume gameplay RNG. Move, support, fixed effects, AI scoring, UI refresh and rejected commands consume none. A support action that finishes a round can still trigger the next initiative rolls.
+
+## Forced movement and universal Move
+
+Rank 1 is nearest the opposing side. Positive displacement moves backward; negative moves forward. Displacement removes the actor ID and inserts it at the destination, shifting intervening actors. Clamp destinations to currently occupied ranks; there are no gaps and no fifth rank. Forced movement never changes the initiative queue or grants extra actions.
+
+Universal Move remains an adjacent **swap**, not an insertion; it spends the actor's action, never the ally's. The distinction matters for future effects moving multiple ranks. A damaging ability still works if its extra displacement is clamped to the same rank; the displacement event records equal start/end ranks. Pure displacement rejects a target that cannot move. Fallback can fire while alone, even with no backward space.
+
+## Initiative and enemy choices
+
+Each round, gather conscious IDs and sort lexicographically. Draw Speed + inclusive d6 in that canonical order. Sort score descending, stable actor ID ascending to break ties. Keep the resulting queue independent of rank changes; draw fresh rolls only at the next round start.
+
+Two test patrols cover five archetypes without placing five enemies on screen:
+
+| Enemy (HP / Speed) | Specialty |
 |---|---|
-| `content/actor_definition.gd`, `content/actors/*.tres` | Authored ID, display name, maximum health, Speed, and ability references. |
-| `content/ability_definition.gd`, `content/abilities/*.tres` | Authored ability ID, name, usable actor ranks, target ranks, and inclusive damage range. |
-| `content/content_catalogue.gd` | Explicit actor preloads; actors explicitly reference their ability Resources. No directory scanning. |
-| `combat/actor_state.gd` | Battle ID, team, shared definition, independent current health. C1/E1 labels are derived from the ID, not rank. |
-| `combat/combat_state.gd` | Living actors, ordered rank ID lists, round ID queue/cursor, rolled initiative, current actor, round/action counters, outcome. |
-| `combat/action_command.gd` | Actor/action/target IDs and expected turn number; owns a copy of the target array. |
-| `combat/combat_event.gd` | Snapshots for presentation: names/IDs, HP loss, remaining HP, ranks, round, outcome. Names remain available after actor removal. |
-| `combat/combat_rules.gd` | Validation, initiative, damage, swaps, removal, rank compaction, turn advancement, outcomes. No scene dependency. |
-| `scripts/battle_controller.gd` | Owns state/RNG, accepts commands, chooses legal enemy attacks, and coordinates input locks and the enemy Timer. |
-| `scripts/battle_screen.gd` | Shows acting actor/order, rank cards, legal targets and disabled reasons; submits choices; never rolls damage or mutates state. |
-| `scripts/placeholder_stage.gd` | Draws shapes from copied rank ID arrays and the active ID; no rule evaluation. |
+| Hull Mauler (22 / 3) | Shear: 5–7, actor ranks 1–2 to enemy ranks 1–2 |
+| Needle Turret (18 / 5) | Needle volley: 4–6, actor ranks 3–4 to enemy ranks 3–4 |
+| Signal Echo (20 / 4) | Signal burst: 2–3 plus 18 strain, actor ranks 2–4 to all opponents |
+| Relay Bulwark (26 / 2) | Shield relay: Protected on another ally, actor ranks 1–3 |
+| Tow Drone (20 / 4) | Tow hook: 3–4 then pull 1, actor ranks 2–4 to opponent ranks 2–4 |
 
-Loaded Resources are shared templates and runtime code never mutates them. Damage now belongs to ability definitions rather than actor definitions. Health, ranks, initiative, and outcomes are runtime data. A no-ability actor definition is allowed because universal Wait must still work. Authored ability rank lists must be nonempty, unique, and between 1 and 4; IDs cannot use the reserved Move/Wait names.
+All have Scramble, a 3–4 damage fallback from any rank to any opponent. Boarding patrol is Mauler / Bulwark / Tow Drone / Needle Turret. Signal patrol replaces only the Tow Drone with Signal Echo.
 
-## Public interfaces
+EnemyPolicy ranks only commands returned by get_legal_actions; the controller sends its choice back through resolve_action's validation. Score starts with adjusted maximum direct damage, then adds actual possible healing/strain change, a bonus for a new status (Protected 100, other statuses 5), and 8 for effective displacement. Those bonuses are editable balance values. Existing status kinds get no reapplication bonus, so the protector attacks while allies are already protected. Wait scores -1, Move -2; ties use action ID then target ID ascending. There is no AI RNG or hidden bypass. This is a small deterministic preference policy, not advanced planning.
 
-- `create_battle(crew: Array[ActorDefinition], enemy: Array[ActorDefinition], rng) -> CombatState`: arrays are rank 1 outward, maximum four per side. Creates independent instances and rolls round 1 initiative. Invalid content/missing RNG returns null before any RNG consumption. An empty side produces a terminal result without rolling.
-- `get_legal_actions(state, actor_id) -> Array[ActionCommand]`: read-only, active conscious actor only. Returns each legal attack/target pair, each adjacent swap, and Wait. Terminal state returns none.
-- `ability_reason(state, actor_id, ability_id) -> String`: read-only availability by current rank/occupied targets, even when it is not that actor's turn. This lets a swap's effect be inspected immediately; it does not authorize acting out of turn.
-- `validate_action(state, command) -> String`: empty means valid, otherwise readable reason. No mutation.
-- `resolve_action(state, command, rng) -> Array[CombatEvent]`: validates before any mutation or random roll. Invalid commands or missing RNG produce no events and leave state, definitions, formation, order, and RNG untouched.
+## Public interfaces and presentation
 
-The interfaces expect internally valid combat state; they do not replace the later save-data validator. A successful action increments `turn_number` once. A command with an old or future expected turn is rejected, including when the same actor becomes active in a later round.
+- `create_battle(crew, enemy, rng)`: max four definitions per side; validate before RNG; build independent instances. Empty sides are terminal without rolling.
+- `get_legal_actions(state, actor_id)`: read-only commands for the active conscious actor. Wait always remains legal while ongoing.
+- `ability_reason(state, actor_id, ability_id)`: read-only rank, use and eligible-target explanation, also usable for inactive actors. It does not authorize acting out of turn.
+- `validate_action(state, command)`: empty means legal; otherwise readable reason. No mutation.
+- `resolve_action(state, command, rng)`: ordered snapshots; invalid commands/null RNG return no events and leave state/content/RNG unchanged.
+- `adjusted_damage(target, ability, rolled)`: shared read-only modifier calculation for resolution and previews.
+- `EnemyPolicy.choose_action(state)`: read-only deterministic selection from legal commands.
 
-## Formation and attacks
+These expect internally valid runtime state, not unvalidated save files. Save validation belongs to M8. Each definition remains shared and read-only; test code explicitly duplicates nested Resources when deliberately corrupting a test fixture.
 
-Rank 1 is closest to the opposition. Crew renders left to right as 4–3–2–1; enemy as 1–2–3–4. The rank arrays store stable actor IDs, always from rank 1 outward. Rank is derived from array position; there is no second mutable rank field that can disagree.
+All action controls lock during resolution, enemy turns and terminal outcomes. The current acting class populates three skill slots; TARGET cards can be allies or enemies. Same-frame repeats are rejected. EnemyDelay affects pacing only. Restart/switch cancels the old Timer and deferred callbacks using a generation token. Missing animation is immediate event presentation, with no animation callback dependency.
 
-| Action | Actor ranks | Target ranks | Crew / enemy damage |
-|---|---|---|---|
-| Close strike (`strike`) | 1, 2 | Opponent 1, 2 | 6–8 / 4–6 |
-| Covering shot (`shot`) | 3, 4 | Opponent 1, 2, 3, 4 | 6–8 / 4–6 |
-| Move (`move`) | Any | Adjacent conscious ally | None |
-| Wait (`wait`) | Any | No target | None |
+## Verification scope
 
-Attack requires one living opponent in an allowed rank and always hits. Roll one integer from the ability range; applied damage is capped at remaining HP. No accuracy, crit, dodge, healing, or status effects.
+The rules suite retains M3 fixtures and adds all class effects, timed expiry, independent healing uses, DOT death/source attribution, forced movement and 64 class-patrol replay comparisons. Integration retains prior navigation and Close strike regressions, clicks all twelve class skills at two sizes, checks maximum status display, naturally completes both patrol outcomes, and exercises README's exact opening without state overrides.
 
-Move swaps the acting actor's ID with an ally exactly one rank away and consumes the acting actor's action. It does not consume the ally's action, change health, reorder the turn queue, or reroll initiative. Wait consumes the action without changing health. Neither Move nor Wait rolls damage, but either can finish a round and thereby trigger new initiative rolls.
-
-## Initiative and action resolution
-
-At each round start:
-
-1. Collect conscious actors and sort IDs lexicographically, ascending.
-2. Roll one inclusive d6 per actor in that canonical ID order. Score is authored Speed + roll.
-3. Sort by score descending, then actor ID ascending on equal scores. Sorting itself never consumes RNG.
-4. Keep this ID queue for the entire round and begin at its first actor.
-
-The explicit ID comparison breaks every tie; it does not rely on the sorting implementation preserving equal elements. Formation changes cannot affect draw order. [Godot Array sorting](https://docs.godotengine.org/en/stable/classes/class_array.html)
-
-For each valid action:
-
-1. Apply damage, swap, or Wait and emit its event (`damage`, `moved`, or `wait`).
-2. On lethal damage, emit `defeated`, remove the target from actors and its rank array, then emit `ranks_compacted` with the new rank IDs. Event names/values remain usable after removal.
-3. Increment the turn counter. Check outcome: no conscious crew → defeat; otherwise no conscious enemies → victory. If both sides are absent, defeat wins. Emit `battle_ended` and clear the active actor for terminal results.
-4. Otherwise advance the queue cursor, skipping removed or non-conscious actors. Do not insert or reorder turns after a swap or removal.
-5. When the queue is exhausted, increment the round and roll the new queue, emitting `round_started`. Finally emit `turn_started`.
-
-Defeated actors are absent from formation and future initiative. Their stale ID in the current round's snapshot is harmless because advancement skips it. There are no corpses, downed states, or revival yet; milestone 5 adds crew vulnerability.
-
-## Controller, input, and presentation
-
-Phases are player input → resolving → next actor's player input or enemy turn, or finished. An enemy waits 0.4 seconds, chooses the first legal attack from the shared query, and otherwise chooses its legal Wait. There is no additional gameplay randomness in AI. Enemy archetypes/advanced behaviour remain milestone 4.
-
-The UI selects an attack or Move first, then submits the clicked legal target card; Wait submits directly. Skills show visible rank/target reasons. All command buttons lock during resolution/enemy turns and after terminal outcomes. The controller rejects more than one player action in a rendered frame, even when two crew turns are consecutive. A fresh input on a later turn is a new command, not a duplicate.
-
-Events display immediately. The next input phase is deferred until the current submission finishes. Restart stops the enemy Timer, increments a generation token to invalidate deferred callbacks, creates new actors, and resets the seed. Leaving the scene frees its controller/Timer. Presentation does not need an animation or sound callback to complete.
-
-## Determinism and verification
-
-Only rules consume the controller's `RandomNumberGenerator`: initiative at round boundaries and damage on valid attacks. Timing, drawing, selection, and rejected input consume none. Same definitions, seed, commands (including target IDs/Move/Wait), and pinned engine reproduce events and results. Cross-engine-version replay compatibility is not promised. [Godot RandomNumberGenerator](https://docs.godotengine.org/en/stable/classes/class_randomnumbergenerator.html)
-
-Default seed 1729 opens with C3, C1, C2, E1, C4, E4, E2, E3. Always using the available attack against enemy rank 1 wins in round 4 (C1 2 HP, others 30). Waiting on every crew turn loses in round 7. These are reproducible test cases, not final balancing.
-
-Run `tests/run_tests.gd` for rules; its native Logger catches script errors as well as assertions. The suite compares 64-seed replays, verifies formation/initiative invariants, and exercises stranded actors. `tests/setup_smoke.gd` checks actual buttons, layouts, restart races, and complete battles. README.md has playtest steps; PROGRESS.md records actual commands/results and untested work.
+The default policy-driven class simulations win Boarding patrol in round 7 and Signal patrol in round 8, both at token 45. This is an automated strategy, not a claim that arbitrary player choices win or that balancing is finished. Seeded equality requires the same engine/content/commands. Physical editor controls, DPI readability and tactical enjoyment require user playtesting; no Windows export was tested.

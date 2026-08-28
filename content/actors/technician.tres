@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ActorDefinition" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://content/actor_definition.gd" id="1"]
+[ext_resource type="Script" path="res://content/ability_definition.gd" id="2"]
+[ext_resource type="Resource" path="res://content/abilities/cutting_beam.tres" id="cutting_beam"]
+[ext_resource type="Resource" path="res://content/abilities/expose.tres" id="expose"]
+[ext_resource type="Resource" path="res://content/abilities/tractor.tres" id="tractor"]
+
+[resource]
+script = ExtResource("1")
+id = &"technician"
+display_name = "Technician"
+max_health = 26
+speed = 7
+abilities = Array[ExtResource("2")]([ExtResource("cutting_beam"), ExtResource("expose"), ExtResource("tractor")])

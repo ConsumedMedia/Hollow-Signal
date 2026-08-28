@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="AbilityDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://content/ability_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"ranger_shot"
+display_name = "Covering shot"
+actor_ranks = Array[int]([3, 4])
+target_ranks = Array[int]([1, 2, 3, 4])
+damage_min = 6
+damage_max = 8
+target_team = 0
+allow_self = true
+max_uses = 0
+exposed_multiplier = 1.0
+description = "Fire from the rear at any enemy rank."

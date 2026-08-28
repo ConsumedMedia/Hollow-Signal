@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ActorDefinition" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://content/actor_definition.gd" id="1"]
+[ext_resource type="Script" path="res://content/ability_definition.gd" id="2"]
+[ext_resource type="Resource" path="res://content/abilities/needle_volley.tres" id="needle_volley"]
+[ext_resource type="Resource" path="res://content/abilities/scramble.tres" id="scramble"]
+
+[resource]
+script = ExtResource("1")
+id = &"needle"
+display_name = "Needle Turret"
+max_health = 18
+speed = 5
+abilities = Array[ExtResource("2")]([ExtResource("needle_volley"), ExtResource("scramble")])

@@ -8,6 +8,9 @@ var id: StringName
 var definition: ActorDefinition
 var side: Team
 var health: int
+var strain: int = 0
+var statuses: Array[StatusState] = []
+var uses: Dictionary[StringName, int] = {}
 
 
 func _init(actor_id: StringName, actor_definition: ActorDefinition, actor_side: Team) -> void:
@@ -19,6 +22,13 @@ func _init(actor_id: StringName, actor_definition: ActorDefinition, actor_side: 
 
 func is_conscious() -> bool:
 	return health > 0
+
+
+func get_status(kind: StatusDefinition.Kind) -> StatusState:
+	for status: StatusState in statuses:
+		if status.definition.kind == kind:
+			return status
+	return null
 
 
 func short_name() -> String:

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ActorDefinition" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://content/actor_definition.gd" id="1"]
+[ext_resource type="Script" path="res://content/ability_definition.gd" id="2"]
+[ext_resource type="Resource" path="res://content/abilities/breach_strike.tres" id="breach_strike"]
+[ext_resource type="Resource" path="res://content/abilities/brace.tres" id="brace"]
+[ext_resource type="Resource" path="res://content/abilities/ram.tres" id="ram"]
+
+[resource]
+script = ExtResource("1")
+id = &"breacher"
+display_name = "Breacher"
+max_health = 34
+speed = 5
+abilities = Array[ExtResource("2")]([ExtResource("breach_strike"), ExtResource("brace"), ExtResource("ram")])

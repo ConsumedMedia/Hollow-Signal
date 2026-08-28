@@ -12,6 +12,10 @@ func run() -> int:
 	_test_invalid_commands()
 	_test_removal_and_outcomes()
 	_test_replays_and_awkward_formations()
+	_test_class_content_and_support()
+	_test_statuses_and_damage()
+	_test_forced_movement()
+	_test_enemy_policy_and_class_replays()
 	if "--self-test-failure" in OS.get_cmdline_user_args():
 		_check(false, "Intentional test-runner failure")
 	print("COMBAT RULES: %d checks, %d failures" % [_checks, _failures])
@@ -244,6 +248,280 @@ func _test_replays_and_awkward_formations() -> void:
 	_check(not duplicate and state.round_number == 5 and state.actors.size() == 8, "Four rounds of swaps preserve exactly one turn per actor")
 
 
+func _test_class_content_and_support() -> void:
+	var ids: Array[StringName] = []
+	for definition: ActorDefinition in ContentCatalogue.crew_party():
+		_check(definition.is_valid() and definition.abilities.size() == 3, "%s has three valid authored skills" % definition.display_name)
+		for ability: AbilityDefinition in definition.abilities:
+			ids.append(ability.id)
+	_check(ids.size() == 12 and _unique(ids), "Twelve distinct class abilities")
+	for definition: ActorDefinition in [ContentCatalogue.MAULER, ContentCatalogue.NEEDLE, ContentCatalogue.CHORISTER, ContentCatalogue.BULWARK, ContentCatalogue.TUGGER]:
+		_check(definition.is_valid(), "Valid enemy archetype: %s" % definition.display_name)
+	var rng: RandomNumberGenerator = _rng(1729)
+	var state: CombatState = _class_battle(rng)
+	_activate(state, &"crew_4")
+	_assert_rejected(state, _command(state, &"field_patch", &"enemy_1"), rng, "Healing rejects opponents")
+	_assert_rejected(state, _command(state, &"field_patch", &"crew_1"), rng, "Healing rejects full health without spending uses")
+	var target: ActorState = state.get_actor(&"crew_1")
+	target.health = 30
+	var before_rng: int = rng.state
+	var events: Array[CombatEvent] = _take(state, &"crew_4", &"field_patch", target.id, rng)
+	_check(target.health == 34 and events[0].kind == &"healed" and events[0].amount == 4, "Field patch caps healing at maximum health")
+	_check(state.get_actor(&"crew_4").uses[&"field_patch"] == 1 and rng.state == before_rng, "Healing spends one use without rolling damage")
+	target.health = 20
+	_take(state, &"crew_4", &"field_patch", target.id, rng)
+	_check(target.health == 28, "Field patch restores the authored eight HP")
+	_activate(state, &"crew_4")
+	_assert_rejected(state, _command(state, &"field_patch", target.id), rng, "Third heal is rejected without mutation")
+	_check(CombatRules.ability_reason(state, &"crew_4", &"field_patch").contains("No uses left"), "Exhausted healing has a readable reason")
+	var fresh: CombatState = _class_battle(_rng(1729))
+	_check(fresh.get_actor(&"crew_4").uses.is_empty() and fresh.get_actor(&"crew_4").strain == 0, "New battle resets uses and battle-local strain")
+	target.strain = 12
+	events = _take(state, &"crew_4", &"stabilize", target.id, rng)
+	_check(target.strain == 0 and events[0].amount == -12, "Strain reduction clamps at zero")
+	_activate(state, &"crew_4")
+	_assert_rejected(state, _command(state, &"stabilize", target.id), rng, "Strain reduction rejects zero strain")
+	state = _class_battle(rng, true)
+	target = state.get_actor(&"crew_1")
+	target.strain = 95
+	events = _take(state, &"enemy_3", &"signal_burst", target.id, rng)
+	_check(target.strain == 100 and events[1].kind == &"strain_changed" and events[1].amount == 5, "Signal burst damages then adds strain capped at balance maximum")
+	_check(state.get_actor(&"crew_2").strain == 0, "Strain is not shared between actor instances")
+	var bad: AbilityDefinition = ContentCatalogue.MEDIC.abilities[1].duplicate(true) as AbilityDefinition
+	bad.effects = [bad.effects[0].duplicate() as EffectDefinition]
+	bad.effects[0].amount = 0
+	_check(not bad.is_valid(), "Invalid healing effect rejected by content validation")
+	bad = ContentCatalogue.TECHNICIAN.abilities[1].duplicate(true) as AbilityDefinition
+	bad.effects = [bad.effects[0].duplicate() as EffectDefinition]
+	bad.effects[0].status = bad.effects[0].status.duplicate() as StatusDefinition
+	bad.effects[0].status.duration = 0
+	_check(not bad.is_valid(), "Zero-duration status rejected by content validation")
+	state = CombatRules.create_battle([ContentCatalogue.MEDIC, ContentCatalogue.MEDIC, ContentCatalogue.MEDIC, ContentCatalogue.MEDIC], [ContentCatalogue.TEST_ENEMY], rng)
+	state.get_actor(&"crew_1").health = 16
+	_take(state, &"crew_3", &"field_patch", &"crew_1", rng)
+	_check(state.get_actor(&"crew_3").uses[&"field_patch"] == 1 and state.get_actor(&"crew_4").uses.is_empty()
+		and ContentCatalogue.MEDIC.abilities[1].max_uses == 2, "Two Medics sharing one definition do not share healing uses")
+
+
+func _test_statuses_and_damage() -> void:
+	var rng: RandomNumberGenerator = _rng(500)
+	var state: CombatState = _class_battle(rng)
+	var target: ActorState = state.get_actor(&"crew_3")
+	_take(state, &"crew_1", &"brace", target.id, rng)
+	_check(target.get_status(StatusDefinition.Kind.PROTECTION) != null and state.get_actor(&"crew_2").statuses.is_empty(), "Brace protects only the chosen ally")
+	var protection: StatusState = target.get_status(StatusDefinition.Kind.PROTECTION)
+	_take(state, &"crew_1", &"brace", target.id, rng)
+	_check(target.statuses.size() == 1 and target.statuses[0] != protection and target.statuses[0].remaining == 2, "Reapplying protection replaces and refreshes; no stacks")
+	var ability: AbilityDefinition = ContentCatalogue.TEST_ENEMY.abilities[0]
+	_check(CombatRules.adjusted_damage(target, ability, 7) == 3, "Protection halves direct damage and rounds down")
+	var expected: RandomNumberGenerator = _rng(0)
+	expected.state = rng.state
+	var rolled: int = expected.randi_range(3, 4)
+	var health_before: int = target.health
+	var events: Array[CombatEvent] = _take(state, &"enemy_1", &"scramble", target.id, rng)
+	_check(health_before - target.health == floori(rolled * 0.5) and events[0].amount == health_before - target.health, "Actual protected damage matches the displayed rule")
+	var protected_definition: StatusDefinition = target.statuses[0].definition
+	for turn_start: int in range(2):
+		_seek_turn(state, target.id, rng)
+		_check(target.get_status(StatusDefinition.Kind.PROTECTION) != null if turn_start == 0 else target.get_status(StatusDefinition.Kind.PROTECTION) == null,
+			"Protection expires before selection at recipient turn start %d" % (turn_start + 1))
+		CombatRules.resolve_action(state, _command(state, &"wait"), rng)
+	_check(protected_definition.duration == 2 and protected_definition.magnitude == 50, "Runtime status expiry never edits its Resource")
+	state = _class_battle(rng)
+	target = state.get_actor(&"enemy_4")
+	_take(state, &"crew_2", &"expose", target.id, rng)
+	ability = ContentCatalogue.RANGER.get_ability(&"exploit")
+	_check(CombatRules.adjusted_damage(target, ability, 5) == 7 and CombatRules.adjusted_damage(target, ability, 7) == 10, "Exposed raises Exploit signal's displayed range to 7–10")
+	_check(CombatRules.adjusted_damage(target, ContentCatalogue.RANGER.abilities[0], 6) == 6, "Exposed is a marker; ordinary attacks get no extra bonus")
+	expected.state = rng.state
+	rolled = expected.randi_range(5, 7)
+	health_before = target.health
+	_take(state, &"crew_3", &"exploit", target.id, rng)
+	_check(health_before - target.health == floori(rolled * 1.5) and target.get_status(StatusDefinition.Kind.EXPOSE) != null, "Exploit applies the conditional bonus without consuming Exposed")
+	_take(state, &"enemy_2", &"enemy_guard", target.id, rng)
+	_check(CombatRules.adjusted_damage(target, ability, 7) == 5, "Expose bonus and protection multiply before one final floor")
+	for turn_start: int in range(2):
+		_seek_turn(state, target.id, rng)
+		CombatRules.resolve_action(state, _command(state, &"wait"), rng)
+	_check(target.get_status(StatusDefinition.Kind.EXPOSE) == null, "Exposed expires after two recipient turn starts")
+
+	state = _class_battle(rng)
+	target = state.get_actor(&"enemy_1")
+	_take(state, &"crew_2", &"cutting_beam", target.id, rng)
+	var scorch: StatusState = target.get_status(StatusDefinition.Kind.DAMAGE_OVER_TIME)
+	_check(scorch != null and scorch.remaining == 2, "Cutting beam applies the single DOT status after damage")
+	_take(state, &"enemy_2", &"enemy_guard", target.id, rng)
+	health_before = target.health
+	_seek_turn(state, target.id, rng)
+	_check(target.health == health_before - 2 and target.get_status(StatusDefinition.Kind.DAMAGE_OVER_TIME).remaining == 1, "Scorch ticks before target selection and bypasses protection")
+	CombatRules.resolve_action(state, _command(state, &"wait"), rng)
+	_seek_turn(state, target.id, rng)
+	_check(target.health == health_before - 4 and target.get_status(StatusDefinition.Kind.DAMAGE_OVER_TIME) == null, "Scorch ticks exactly twice then expires")
+	CombatRules.resolve_action(state, _command(state, &"wait"), rng)
+	_seek_turn(state, target.id, rng)
+	_check(target.health == health_before - 4, "Expired Scorch cannot tick again")
+	_check(scorch.definition.duration == 2 and scorch.definition.magnitude == 2, "DOT countdown and damage leave authored status unchanged")
+
+	# A lethal turn-start tick must never offer input to the dying actor.
+	state = _class_battle(rng)
+	_take(state, &"crew_2", &"cutting_beam", &"enemy_1", rng)
+	state.get_actor(&"enemy_1").health = 1
+	events = _seek_turn(state, &"enemy_1", rng)
+	_check(state.get_actor(&"enemy_1") == null and state.active_actor_id != &"enemy_1", "Lethal DOT removes and skips the actor before input")
+	_check(_event_index(events, &"dot_damage") >= 0 and _event_index(events, &"defeated") > _event_index(events, &"dot_damage"), "Lethal DOT emits damage then removal")
+	_check(state.enemy_ranks[0] == &"enemy_2", "DOT removal compacts ranks")
+	state = _class_battle(rng)
+	_take(state, &"crew_2", &"cutting_beam", &"enemy_2", rng)
+	_take(state, &"crew_2", &"cutting_beam", &"enemy_2", rng)
+	target = state.get_actor(&"enemy_2")
+	_check(target.statuses.size() == 1 and target.statuses[0].remaining == 2, "Repeated Scorch refreshes two ticks without stacking damage")
+	state.get_actor(&"crew_2").health = 1
+	_take(state, &"enemy_1", &"maul", &"crew_2", rng)
+	target.health = 1
+	events = _seek_turn(state, target.id, rng)
+	var dot_index: int = _event_index(events, &"dot_damage")
+	var death_index: int = _event_index(events, &"defeated")
+	_check(state.get_actor(&"crew_2") == null and dot_index >= 0 and death_index > dot_index
+		and events[dot_index].source_id == &"crew_2" and events[death_index].source_id == &"crew_2",
+		"Scorch persists after its source dies and retains correct damage/death attribution")
+	# Last-enemy DOT victory, and last-crew DOT defeat.
+	for victim_team: ActorState.Team in [ActorState.Team.CREW, ActorState.Team.ENEMY]:
+		state = _battle(rng, 1, 1)
+		var victim: ActorState = state.get_actor(&"crew_1" if victim_team == ActorState.Team.CREW else &"enemy_1")
+		var source: ActorState = state.get_actor(&"enemy_1" if victim_team == ActorState.Team.CREW else &"crew_1")
+		victim.health = 1
+		victim.statuses.append(StatusState.new(ContentCatalogue.TECHNICIAN.abilities[0].effects[0].status, source))
+		_activate(state, source.id)
+		events = CombatRules.resolve_action(state, _command(state, &"wait"), rng)
+		_check(state.outcome == (&"defeat" if victim_team == ActorState.Team.CREW else &"victory")
+			and events[-1].kind == &"battle_ended" and state.active_actor_id.is_empty(), "Last-actor DOT reaches the correct terminal outcome")
+
+
+func _test_forced_movement() -> void:
+	var rng: RandomNumberGenerator = _rng(12)
+	var state: CombatState = _class_battle(rng)
+	var events: Array[CombatEvent] = _take(state, &"crew_1", &"ram", &"enemy_1", rng)
+	_check(state.enemy_ranks == [&"enemy_2", &"enemy_1", &"enemy_3", &"enemy_4"], "Ram damages then pushes the enemy one rank backward")
+	_check(events[0].kind == &"damage" and events[1].kind == &"displaced", "Damage resolves before forced movement")
+	_take(state, &"crew_2", &"tractor", &"enemy_4", rng)
+	_check(state.enemy_ranks == [&"enemy_2", &"enemy_1", &"enemy_4", &"enemy_3"], "Tractor pulls one rank and shifts the intervening actor")
+	_activate(state, &"crew_2")
+	_assert_rejected(state, _command(state, &"tractor", &"enemy_2"), rng, "Tractor cannot pull rank 1")
+	state = _class_battle(rng)
+	_activate(state, &"crew_3")
+	var order: Array[StringName] = state.round_order.duplicate()
+	events = CombatRules.resolve_action(state, _command(state, &"fallback", &"enemy_1"), rng)
+	_check(state.crew_ranks == [&"crew_1", &"crew_2", &"crew_4", &"crew_3"] and state.round_order == order and state.turn_number == 1,
+		"Fallback shot moves its actor backward without extra or stolen turns")
+	_check(CombatRules.ability_reason(state, &"crew_4", &"field_patch").is_empty() == false, "Movement respects healing target eligibility (all crew still full)")
+	state = _class_battle(rng)
+	state.get_actor(&"enemy_1").health = 1
+	events = _take(state, &"crew_1", &"ram", &"enemy_1", rng)
+	_check(state.get_actor(&"enemy_1") == null and _event_index(events, &"displaced") == -1, "Lethal damage skips forced movement on the removed target")
+	state = CombatRules.create_battle([ContentCatalogue.RANGER], [ContentCatalogue.TEST_ENEMY], rng)
+	_activate(state, &"crew_1")
+	events = CombatRules.resolve_action(state, _command(state, &"fallback", &"enemy_1"), rng)
+	_check(state.get_rank(&"crew_1") == 1 and events[0].kind == &"damage", "Fallback shot still damages when no backward space exists")
+	state = _class_battle(rng)
+	var before: Array[StringName] = state.crew_ranks.duplicate()
+	_take(state, &"enemy_3", &"tow_hook", &"crew_4", rng)
+	_check(state.crew_ranks == [before[0], before[1], before[3], before[2]], "Displacement specialist pulls a legal rear target")
+
+
+func _test_enemy_policy_and_class_replays() -> void:
+	var rng: RandomNumberGenerator = _rng(1729)
+	var state: CombatState = _class_battle(rng)
+	for actor_id: StringName in [&"enemy_1", &"enemy_2", &"enemy_3", &"enemy_4"]:
+		_activate(state, actor_id)
+		var before: Dictionary = _snapshot(state, rng)
+		var choice: ActionCommand = EnemyPolicy.choose_action(state)
+		_check(choice != null and CombatRules.validate_action(state, choice).is_empty() and _snapshot(state, rng) == before,
+			"Enemy choice is legal and read-only: %s" % actor_id)
+		var expected: StringName = {&"enemy_1": &"maul", &"enemy_2": &"enemy_guard", &"enemy_3": &"tow_hook", &"enemy_4": &"needle_volley"}[actor_id]
+		_check(choice.action_id == expected, "Enemy uses its tactical specialty: %s" % actor_id)
+	state = _class_battle(rng, true)
+	_activate(state, &"enemy_3")
+	_check(EnemyPolicy.choose_action(state).action_id == &"signal_burst", "Strain archetype chooses Signal burst")
+	state = CombatRules.create_battle([ContentCatalogue.TEST_CREW], [ContentCatalogue.NEEDLE], rng)
+	_activate(state, &"enemy_1")
+	_check(EnemyPolicy.choose_action(state).action_id == &"scramble", "Displaced rear attacker uses its legal fallback from rank 1")
+	var legal: bool = true
+	var deterministic: bool = true
+	var terminal: bool = true
+	for patrol: bool in [false, true]:
+		for seed_value: int in range(32):
+			var first: Dictionary = _simulate_classes(seed_value, patrol)
+			var second: Dictionary = _simulate_classes(seed_value, patrol)
+			legal = legal and first.legal
+			deterministic = deterministic and first == second
+			terminal = terminal and first.final.outcome != &"ongoing"
+	_check(legal, "64 class battles: AI never chooses an illegal action through movement, statuses and removal")
+	_check(deterministic, "64 class battles: same seed and choices reproduce all runtime state and effect events")
+	_check(terminal, "64 class battles reach a terminal outcome without a softlock")
+	for patrol: bool in [false, true]:
+		var result: Dictionary = _simulate_classes(1729, patrol)
+		print("M4 DEFAULT PATROL ", patrol, ": ", result.final.outcome, " / round ", result.final.round, " / turn ", result.final.turn)
+
+
+func _simulate_classes(seed_value: int, patrol: bool) -> Dictionary:
+	var rng: RandomNumberGenerator = _rng(seed_value)
+	var state: CombatState = _class_battle(rng, patrol)
+	var events: Array[Dictionary] = []
+	var legal: bool = true
+	for index: int in range(500):
+		if state.outcome != &"ongoing":
+			break
+		var command: ActionCommand = EnemyPolicy.choose_action(state)
+		legal = legal and command != null and CombatRules.validate_action(state, command).is_empty()
+		if not legal:
+			break
+		for event: CombatEvent in CombatRules.resolve_action(state, command, rng):
+			events.append({"kind": event.kind, "source": event.source_id, "target": event.target_id, "amount": event.amount,
+				"hp": event.health_after, "strain": event.strain_after, "status": event.status_name,
+				"duration": event.duration, "ability": event.ability_name, "ranks": event.rank_ids.duplicate()})
+	return {"legal": legal, "final": _snapshot(state, rng), "events": events}
+
+
+func _class_battle(rng: RandomNumberGenerator, patrol: bool = false) -> CombatState:
+	return CombatRules.create_battle(ContentCatalogue.crew_party(), ContentCatalogue.enemy_party(patrol), rng)
+
+
+func _take(state: CombatState, actor_id: StringName, ability: StringName, target: StringName, rng: RandomNumberGenerator) -> Array[CombatEvent]:
+	_activate(state, actor_id)
+	# Keep the target later in this valid fixture queue to inspect the applied effect.
+	if target != actor_id:
+		state.round_order.erase(target)
+		state.round_order.append(target)
+	return CombatRules.resolve_action(state, _command(state, ability, target), rng)
+
+
+func _seek_turn(state: CombatState, actor_id: StringName, rng: RandomNumberGenerator) -> Array[CombatEvent]:
+	var events: Array[CombatEvent] = []
+	for index: int in range(32):
+		if state.active_actor_id == actor_id or state.get_actor(actor_id) == null or state.outcome != &"ongoing":
+			return events
+		events.append_array(CombatRules.resolve_action(state, _command(state, &"wait"), rng))
+	_check(false, "Requested actor turn was not reached")
+	return events
+
+
+func _event_index(events: Array[CombatEvent], kind: StringName) -> int:
+	for index: int in range(events.size()):
+		if events[index].kind == kind:
+			return index
+	return -1
+
+
+func _unique(ids: Array[StringName]) -> bool:
+	var seen: Array[StringName] = []
+	for id: StringName in ids:
+		if id in seen:
+			return false
+		seen.append(id)
+	return true
+
+
+
 func _simulate(seed_value: int, crew_waits: bool) -> Dictionary:
 	var rng: RandomNumberGenerator = _rng(seed_value)
 	var state: CombatState = _battle(rng)
@@ -316,7 +594,12 @@ func _assert_rejected(state: CombatState, command: ActionCommand, rng: RandomNum
 func _snapshot(state: CombatState, rng: RandomNumberGenerator) -> Dictionary:
 	var actors: Array[Dictionary] = []
 	for actor: ActorState in state.actors:
-		actors.append({"id": actor.id, "side": actor.side, "health": actor.health, "definition": _definition_snapshot(actor.definition)})
+		var statuses: Array[Dictionary] = []
+		for status: StatusState in actor.statuses:
+			statuses.append({"id": status.definition.id, "kind": status.definition.kind, "duration": status.definition.duration,
+				"magnitude": status.definition.magnitude, "remaining": status.remaining, "source": status.source_id, "source_name": status.source_name})
+		actors.append({"id": actor.id, "side": actor.side, "health": actor.health, "strain": actor.strain,
+			"uses": actor.uses.duplicate(), "statuses": statuses, "definition": _definition_snapshot(actor.definition)})
 	return {"actors": actors, "active": state.active_actor_id, "round": state.round_number,
 		"turn": state.turn_number, "outcome": state.outcome, "rng": rng.state,
 		"crew": state.crew_ranks.duplicate(), "enemy": state.enemy_ranks.duplicate(),
@@ -327,8 +610,14 @@ func _snapshot(state: CombatState, rng: RandomNumberGenerator) -> Dictionary:
 func _definition_snapshot(definition: ActorDefinition) -> Dictionary:
 	var abilities: Array[Dictionary] = []
 	for ability: AbilityDefinition in definition.abilities:
+		var effects: Array[Dictionary] = []
+		for effect: EffectDefinition in ability.effects:
+			effects.append({"kind": effect.kind, "amount": effect.amount, "self": effect.on_actor,
+				"status": [] if effect.status == null else [effect.status.id, effect.status.kind, effect.status.duration, effect.status.magnitude]})
 		abilities.append({"id": ability.id, "name": ability.display_name, "actor_ranks": ability.actor_ranks.duplicate(),
-			"target_ranks": ability.target_ranks.duplicate(), "min": ability.damage_min, "max": ability.damage_max})
+			"target_ranks": ability.target_ranks.duplicate(), "min": ability.damage_min, "max": ability.damage_max,
+			"team": ability.target_team, "self": ability.allow_self, "max_uses": ability.max_uses,
+			"exposed_multiplier": ability.exposed_multiplier, "effects": effects})
 	return {"id": definition.id, "name": definition.display_name, "max_health": definition.max_health,
 		"speed": definition.speed, "abilities": abilities}
 

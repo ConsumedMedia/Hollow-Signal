@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ActorDefinition" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://content/actor_definition.gd" id="1"]
+[ext_resource type="Script" path="res://content/ability_definition.gd" id="2"]
+[ext_resource type="Resource" path="res://content/abilities/signal_burst.tres" id="signal_burst"]
+[ext_resource type="Resource" path="res://content/abilities/scramble.tres" id="scramble"]
+
+[resource]
+script = ExtResource("1")
+id = &"chorister"
+display_name = "Signal Echo"
+max_health = 20
+speed = 4
+abilities = Array[ExtResource("2")]([ExtResource("signal_burst"), ExtResource("scramble")])

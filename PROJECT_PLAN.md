@@ -2,7 +2,7 @@
 
 ## Specification and scope
 
-The user supplied the full plan on 2026-08-27 and then authorized milestone 1. On 2026-08-28 the user reported "all is working" and requested milestone 2. Operational requirements are recorded in [SPECIFICATION.md](SPECIFICATION.md); the original user-supplied plan remains authoritative. Embedded example prompts are not authorization to start every milestone. Milestone 3 was requested on 2026-08-28 after the GitHub upload. Milestones 4–13 have not been requested.
+The user supplied the full plan on 2026-08-27 and then authorized milestone 1. On 2026-08-28 the user reported "all is working" and requested milestone 2. Operational requirements are recorded in [SPECIFICATION.md](SPECIFICATION.md); the original user-supplied plan remains authoritative. Embedded example prompts are not authorization to start every milestone. Milestone 3 followed the GitHub upload. After the Close strike diagnostic, the user said "ok move on to the next milestone", authorizing milestone 4. Milestones 5–13 have not been requested.
 
 ## Required approach
 
@@ -28,9 +28,9 @@ The user supplied the full plan on 2026-08-27 and then authorized milestone 1. O
 
 Repository: [ConsumedMedia/Hollow-Signal](https://github.com/ConsumedMedia/Hollow-Signal), connected and initially pushed on 2026-08-28. Local `main` tracks `origin/main`; preserve milestone history and exclude local engine/cache/artifact files from commits.
 
-1. User performs the milestone 3 acceptance playtest in README.md: rank targeting, Move, initiative, removal/compaction, victory/defeat, and both target sizes.
-2. Fix any reported battle issue before proceeding.
-3. Begin milestone 4 (crew classes and enemy behaviour) only when explicitly requested.
+1. User performs README.md's milestone 4 opening and remaining ability/status checks in Godot 4.7.2 at both target sizes.
+2. Fix reported problems before proceeding. The earlier Close strike observation was not reproduced; its tests remain, and the user authorized continuing without supplying a screenshot. Do not claim a confirmed fix for that report.
+3. Begin milestone 5 (crew vulnerability and shared power) only when explicitly requested.
 
 ## Milestone 1 — Project setup
 
@@ -54,7 +54,7 @@ Delivered: two editable actor Resources and an explicit catalogue; separate runt
 
 ## Milestone 3 — Four-position combat
 
-Status: implemented and verified locally; import, 78 rules checks, 107 headless integration checks, and 166 rendered checks passed. Intentional assertion/script-error runs both exit 1. User acceptance playtest pending.
+Status: implemented and verified locally at its checkpoint; user authorized milestone 4 after the Close strike diagnostic. Original checks and the additional button-click regressions are retained. No claim that every manual acceptance item was separately reported.
 
 Four positions per side, actor/target rank requirements, Speed plus seeded 1–6 initiative, stable actor-ID tie-breaking, one action per actor per round. Adjacent Move consumes an action; Wait remains available; compact ranks after removal. Show active actor, rank numbers, legal targets, and disabled-skill reasons.
 
@@ -64,11 +64,13 @@ Delivered: four actors per side, two generic rank-limited attack Resources per s
 
 ## Milestone 4 — Crew classes and enemy behaviour
 
-Status: not started.
+Status: implemented and verified locally; final import and standalone battle start passed, with 149 rules checks, 360 headless integration checks and 539 rendered integration checks. Both intentional failure modes exit 1. User acceptance playtest pending; exact evidence and limitations are in PROGRESS.md.
 
 Four classes and twelve specified class abilities. Minimal shared effects for damage, healing, strain reduction, protection, expose, forced movement, and one damage-over-time status. Editable ability Resources. Document status duration, stacking, rounding, and resolution order. Five enemy archetypes, using the same legality checks as players.
 
 Acceptance: distinct class roles; documented status expiry; legal enemy decisions; healing limits reset between battles.
+
+Delivered: four class Resources with twelve skills; five original enemy archetypes across two selectable patrols; ordered healing/strain/status/displacement effects after direct damage; Protected, Exposed and one DOT (Scorch); separate runtime status/use counters; common legality and deterministic enemy preferences; class-driven buttons, support targets, adjusted damage previews and status counters. Battle-local strain exists only to exercise the Medic and strain enemy. Persistent strain, Shaken, downed/death and power remain milestone 5. No new dependencies/assets or later systems.
 
 ## Milestone 5 — Crew vulnerability and shared power
 

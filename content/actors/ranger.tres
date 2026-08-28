@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ActorDefinition" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://content/actor_definition.gd" id="1"]
+[ext_resource type="Script" path="res://content/ability_definition.gd" id="2"]
+[ext_resource type="Resource" path="res://content/abilities/ranger_shot.tres" id="ranger_shot"]
+[ext_resource type="Resource" path="res://content/abilities/exploit.tres" id="exploit"]
+[ext_resource type="Resource" path="res://content/abilities/fallback.tres" id="fallback"]
+
+[resource]
+script = ExtResource("1")
+id = &"ranger"
+display_name = "Ranger"
+max_health = 28
+speed = 6
+abilities = Array[ExtResource("2")]([ExtResource("ranger_shot"), ExtResource("exploit"), ExtResource("fallback")])

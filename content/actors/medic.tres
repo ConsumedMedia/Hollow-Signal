@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ActorDefinition" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://content/actor_definition.gd" id="1"]
+[ext_resource type="Script" path="res://content/ability_definition.gd" id="2"]
+[ext_resource type="Resource" path="res://content/abilities/medic_dart.tres" id="medic_dart"]
+[ext_resource type="Resource" path="res://content/abilities/field_patch.tres" id="field_patch"]
+[ext_resource type="Resource" path="res://content/abilities/stabilize.tres" id="stabilize"]
+
+[resource]
+script = ExtResource("1")
+id = &"medic"
+display_name = "Medic"
+max_health = 24
+speed = 4
+abilities = Array[ExtResource("2")]([ExtResource("medic_dart"), ExtResource("field_patch"), ExtResource("stabilize")])

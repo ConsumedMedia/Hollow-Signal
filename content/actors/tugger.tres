@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ActorDefinition" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://content/actor_definition.gd" id="1"]
+[ext_resource type="Script" path="res://content/ability_definition.gd" id="2"]
+[ext_resource type="Resource" path="res://content/abilities/tow_hook.tres" id="tow_hook"]
+[ext_resource type="Resource" path="res://content/abilities/scramble.tres" id="scramble"]
+
+[resource]
+script = ExtResource("1")
+id = &"tugger"
+display_name = "Tow Drone"
+max_health = 20
+speed = 4
+abilities = Array[ExtResource("2")]([ExtResource("tow_hook"), ExtResource("scramble")])

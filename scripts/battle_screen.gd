@@ -8,6 +8,9 @@ extends "res://scripts/screen_navigation.gd"
 @onready var help_label: Label = %ActionHelp
 @onready var strike_button: Button = %Strike
 @onready var shot_button: Button = %Shot
+@onready var third_button: Button = %Skill3
+@onready var detail_label: Label = %SelectedDetail
+@onready var encounter_button: Button = %Encounter
 @onready var move_button: Button = %Move
 @onready var wait_button: Button = %Wait
 @onready var restart_button: Button = %Restart
@@ -24,14 +27,32 @@ func _ready() -> void:
 	controller.events_resolved.connect(_present_events)
 	controller.state_changed.connect(_refresh)
 	controller.setup_failed.connect(_show_setup_error)
-	strike_button.pressed.connect(select_action.bind(&"strike"))
-	shot_button.pressed.connect(select_action.bind(&"shot"))
+	strike_button.pressed.connect(_select_slot.bind(0))
+	shot_button.pressed.connect(_select_slot.bind(1))
+	third_button.pressed.connect(_select_slot.bind(2))
+	encounter_button.pressed.connect(_switch_encounter)
 	move_button.pressed.connect(select_action.bind(&"move"))
 	wait_button.pressed.connect(_on_wait_pressed)
 	for rank: int in range(1, 5):
 		slot_button(ActorState.Team.CREW, rank).pressed.connect(_on_slot_pressed.bind(ActorState.Team.CREW, rank))
 		slot_button(ActorState.Team.ENEMY, rank).pressed.connect(_on_slot_pressed.bind(ActorState.Team.ENEMY, rank))
 	restart_battle()
+
+
+func _switch_encounter() -> void:
+	if _transition_pending:
+		return
+	var signal_patrol: bool = controller.enemy_definitions[2] != ContentCatalogue.CHORISTER
+	controller.crew_definitions = ContentCatalogue.crew_party()
+	controller.enemy_definitions = ContentCatalogue.enemy_party(signal_patrol)
+	encounter_button.text = "Signal patrol / switch" if signal_patrol else "Boarding patrol / switch"
+	restart_battle()
+
+
+func _select_slot(index: int) -> void:
+	var actor: ActorState = controller.state.get_actor(controller.state.active_actor_id) if controller.state != null else null
+	if actor != null and index < actor.definition.abilities.size():
+		select_action(actor.definition.abilities[index].id)
 
 
 func slot_button(team: ActorState.Team, rank: int) -> Button:
@@ -78,6 +99,18 @@ func _on_slot_pressed(team: ActorState.Team, rank: int) -> void:
 func _present_events(events: Array[CombatEvent]) -> void:
 	for event: CombatEvent in events:
 		match event.kind:
+			&"healed":
+				_append_log("%s heals %s for %d HP (now %d)." % [event.source_name, event.target_name, event.amount, event.health_after])
+			&"strain_changed":
+				_append_log("%s: %s strain %+d (now %d)." % [event.ability_name, event.target_name, event.amount, event.strain_after])
+			&"status_applied":
+				_append_log("%s: %s gains %s for %d turn starts." % [event.source_name, event.target_name, event.status_name, event.duration])
+			&"status_expired":
+				_append_log("%s: %s expired." % [event.target_name, event.status_name])
+			&"dot_damage":
+				_append_log("%s takes %d %s damage before acting (HP %d)." % [event.target_name, event.amount, event.status_name, event.health_after])
+			&"displaced":
+				_append_log("%s: %s shifts rank %d to %d. Turn order unchanged." % [event.ability_name, event.target_name, event.source_rank, event.target_rank])
 			&"damage":
 				_append_log("%s hits %s for %d damage. Target HP: %d." % [
 					event.source_name, event.target_name, event.amount, event.health_after])
@@ -126,8 +159,12 @@ func _refresh() -> void:
 	for command: ActionCommand in legal:
 		if command.action_id not in choices:
 			choices.append(command.action_id)
-	strike_button.disabled = not can_act or &"strike" not in choices
-	shot_button.disabled = not can_act or &"shot" not in choices
+	var acting: ActorState = state.get_actor(state.active_actor_id) if state != null else null
+	var buttons: Array[Button] = [strike_button, shot_button, third_button]
+	for index: int in range(buttons.size()):
+		var ability: AbilityDefinition = acting.definition.abilities[index] if acting != null and index < acting.definition.abilities.size() else null
+		buttons[index].visible = ability != null
+		buttons[index].disabled = not can_act or ability == null or ability.id not in choices
 	move_button.disabled = not can_act or &"move" not in choices
 	wait_button.disabled = not can_act or &"wait" not in choices
 	for rank: int in range(1, 5):
@@ -143,7 +180,7 @@ func _refresh() -> void:
 	var actor: ActorState = state.get_actor(state.active_actor_id)
 	var turn_text: String = "VICTORY" if state.outcome == &"victory" else "DEFEAT"
 	if actor != null:
-		turn_text = "%s / Rank %d / %s" % [actor.short_name(), state.get_rank(actor.id),
+		turn_text = "%s %s / Rank %d / %s" % [actor.short_name(), actor.definition.display_name, state.get_rank(actor.id),
 			"Your turn" if can_act else "Actions locked"]
 	if not _setup_error.is_empty():
 		turn_text = "Battle setup error"
@@ -164,8 +201,8 @@ func _refresh() -> void:
 
 
 func _focus_action() -> void:
-	for button: Button in [strike_button, shot_button, wait_button]:
-		if not button.disabled:
+	for button: Button in [strike_button, shot_button, third_button, wait_button]:
+		if button.visible and not button.disabled:
 			button.grab_focus()
 			return
 
@@ -185,29 +222,54 @@ func _refresh_slot(team: ActorState.Team, rank: int, legal: Array[ActionCommand]
 			button.disabled = false
 			marker = "SWAP" if selected_action == &"move" else "TARGET"
 			break
-	button.text = "Rank %d / %s\nHP %d/%d\n%s" % [rank, actor.short_name(), actor.health, actor.definition.max_health, marker]
+	var status_labels: PackedStringArray = []
+	var status_details: PackedStringArray = []
+	for status: StatusState in actor.statuses:
+		var symbol: String = ["P", "X", "D"][status.definition.kind]
+		status_labels.append("%s%d" % [symbol, status.remaining])
+		status_details.append("%s: %d turn starts left" % [status.definition.display_name, status.remaining])
+	button.text = "Rank %d / %s\n%s\nHP %d/%d | Str %d\n%s\n%s" % [rank, actor.short_name(), actor.definition.display_name,
+		actor.health, actor.definition.max_health, actor.strain, marker, " ".join(status_labels) if not status_labels.is_empty() else "—"]
 	button.tooltip_text = "%s / %s / Speed %d. %s" % [actor.short_name(), actor.definition.display_name,
 		actor.definition.speed, "Click to resolve the selected action." if not button.disabled else "Not a legal target for the selected action."]
+	button.tooltip_text += "\n" + "\n".join(status_details)
 	if actor.id == controller.state.active_actor_id:
 		button.modulate = Color("ffd5a8")
 
 
 func _refresh_help(actor: ActorState, can_act: bool) -> void:
 	var lines: PackedStringArray = []
-	for ability_id: StringName in [&"strike", &"shot"]:
-		var button: Button = strike_button if ability_id == &"strike" else shot_button
-		var name_text: String = "Close strike" if ability_id == &"strike" else "Covering shot"
-		var ability: AbilityDefinition = actor.definition.get_ability(ability_id) if actor != null else null
-		button.text = name_text
-		if ability != null:
+	var buttons: Array[Button] = [strike_button, shot_button, third_button]
+	for index: int in range(buttons.size()):
+		var button: Button = buttons[index]
+		var ability: AbilityDefinition = actor.definition.abilities[index] if actor != null and index < actor.definition.abilities.size() else null
+		if ability == null:
+			continue
+		button.text = ability.display_name
+		if ability.damage_max > 0:
 			button.text += " / %d–%d" % [ability.damage_min, ability.damage_max]
-		var reason: String = CombatRules.ability_reason(controller.state, actor.id, ability_id) if actor != null else "Battle ended."
+		if ability.max_uses > 0:
+			button.text += " / %d left" % (ability.max_uses - actor.uses.get(ability.id, 0))
+		var reason: String = CombatRules.ability_reason(controller.state, actor.id, ability.id)
 		if reason.is_empty():
-			reason = "Selected: click a TARGET." if selected_action == ability_id and can_act else "Available."
+			reason = "SELECTED: click a TARGET." if selected_action == ability.id and can_act else "Available."
 			if not can_act:
 				reason = "Actions locked until a crew turn."
-		lines.append("%s: %s" % [name_text, reason])
-		button.tooltip_text = reason
-	lines.append("Move selected: click SWAP on an adjacent ally." if selected_action == &"move" and can_act
-		else "Move swaps adjacent allies and spends this actor's action. Wait is always available on your turn.")
+		lines.append("%s: %s" % [ability.display_name, reason])
+		button.tooltip_text = ability.description + "\n" + reason
 	help_label.text = "\n".join(lines)
+	var selected: AbilityDefinition = actor.definition.get_ability(selected_action) if actor != null else null
+	detail_label.text = "Move: click an adjacent SWAP ally; this spends the acting crew member's turn."
+	if selected != null:
+		detail_label.text = selected.description
+		if selected.damage_max > 0:
+			var previews: PackedStringArray = []
+			for command: ActionCommand in CombatRules.get_legal_actions(controller.state, actor.id):
+				if command.action_id == selected.id:
+					var target: ActorState = controller.state.get_actor(command.target_ids[0])
+					previews.append("%s %d–%d" % [target.short_name(),
+						mini(target.health, CombatRules.adjusted_damage(target, selected, selected.damage_min)),
+						mini(target.health, CombatRules.adjusted_damage(target, selected, selected.damage_max))])
+			detail_label.text += "\nTarget HP loss: " + "; ".join(previews)
+	elif actor == null:
+		detail_label.text = "Battle ended. Restart or switch patrol for a fresh battle."

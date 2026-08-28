@@ -3,6 +3,7 @@ extends RefCounted
 ## Formation and the round's turn queue are separate, both keyed by stable IDs.
 
 var actors: Array[ActorState] = []
+var balance: CombatBalance
 var crew_ranks: Array[StringName] = []
 var enemy_ranks: Array[StringName] = []
 var round_order: Array[StringName] = []

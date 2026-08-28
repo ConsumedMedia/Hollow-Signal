@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="CombatBalance" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://content/combat_balance.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+strain_max = 100
+ai_protection_bonus = 100
+ai_status_bonus = 5
+ai_movement_bonus = 8

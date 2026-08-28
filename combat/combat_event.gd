@@ -7,6 +7,10 @@ var source_id: StringName
 var target_id: StringName
 var amount: int
 var health_after: int = 0
+var strain_after: int = 0
+var status_name: String = ""
+var duration: int = 0
+var ability_name: String = ""
 var round_number: int = 0
 var outcome: StringName = &""
 var source_name: String = ""

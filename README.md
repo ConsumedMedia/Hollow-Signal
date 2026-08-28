@@ -1,6 +1,6 @@
 # Hollow Signal
 
-Milestone 3: four Salvagers face four Faulted Sentries. Rank determines which attacks work and who they can target. Move swaps adjacent allies; Speed plus a seeded roll determines the order each round. Win, lose, and restart with the same seed. **There is no roster, expedition, permanent loss, or saving yet.** New Game still opens the placeholder hub.
+Milestone 4: command a Breacher, Technician, Ranger and Medic, with three abilities each, against two test patrols covering five enemy archetypes. Healing, protection, Exposed, Scorch, strain changes and forced movement use shared rules. **There is no roster, expedition, permanent loss, persistent strain, Shaken, power or saving yet.** New Game still opens the placeholder hub.
 
 ## Open the project in Godot
 
@@ -45,39 +45,44 @@ Orange outlines show keyboard focus. The first useful button is focused on every
 
 The Input Map defines `ui_accept`, `ui_cancel`, and `toggle_fullscreen`. Tab and arrow navigation use Godot's native UI actions. Select an attack or Move, then click a labelled TARGET or SWAP card. Wait immediately spends the current actor's action. There are no extra combat hotkeys yet.
 
-## Exact milestone 3 playtest
+## Exact milestone 4 playtest
 
-Use **Godot 4.7.2 Standard** and press **F5**, then **Battle Test** (or New Game → Open Battle Test). These exact expectations use unchanged Resources and seed **1729**.
+Use **Godot 4.7.2 Standard** from the path above. Stop any old running game with **F8**, then press **F5 → Battle Test**. Leave the seed at **1729** and use unchanged content.
 
-Each card has a stable actor label (C1–C4 for crew, E1–E4 for enemies) and a separate rank. **Rank 1 is nearest the opposition:** crew ranks run 4, 3, 2, 1 from left to right; enemy ranks run 1, 2, 3, 4. IDs stay with the actor when ranks change.
+The four starting ranks are **C1 Breacher, C2 Technician, C3 Ranger, C4 Medic** (rank 1 outward). Rank 1 is closest to the opposition; the crew's front is on the right. Buttons belong only to the **ACTING actor/class in the top line**. Selecting a skill does not spend an action; clicking a legal **TARGET** does. Move uses an adjacent **SWAP** card. Wait acts immediately.
 
-| Check | Steps and expected result |
+### First round: exact opening
+
+Start a fresh **Boarding patrol** (the default). Do not insert other actions between these steps; enemy turns happen automatically.
+
+1. **C3 Ranger / rank 3:** choose **Covering shot → Rank 4 / E4 Needle Turret**. E4 loses 6–8 HP.
+2. **C2 Technician / rank 2:** choose **Cutting beam → Rank 1 / E1 Hull Mauler**. E1 takes 4–6 damage and gains Scorch. Its first Scorch tick happens before its immediately following action, so the card should then show **D1**, with 2 additional HP lost.
+3. After E1 acts, **C1 Breacher / rank 1:** choose **Brace → C4 Medic**. The Medic gets **P2** (Protected). The Needle Turret then attacks the rear crew.
+4. **C4 Medic / rank 4:** choose **Field patch → C3 Ranger**, who was injured by the turret. The Ranger returns to full health; Field patch has **1 use left** on the Medic's next turn.
+
+This opening is exercised with simulated GUI clicks and natural initiative in the native smoke test. Your physical editor/mouse check is still required.
+
+### Remaining acceptance checks
+
+| Check | Exact action and expected result |
 |---|---|
-| Starting state | Four crew at 30 HP and four enemies at 20 HP. **C3 at rank 3 acts first**, with Covering shot selected and focused. All four enemy cards say TARGET. Close strike is disabled, with the reason printed below it. |
-| Initiative and ties | Initial order is **C3:11 > C1:9 > C2:9 > E1:9 > C4:7 > E4:6 > E2:4 > E3:4**. Numbers are Speed + the d6 roll. The three actors on 9 appear in stable ID order. Only the current actor's action is accepted. |
-| Adjacent Move | Click **Move / swap**, then the **Rank 2 / C2** card marked SWAP. Only C2 and C4 should be valid swap targets for C3. C3 moves to rank 2 and C2 moves to rank 3. The log says the action was spent; **C1 acts next**, not C3 again. |
-| Movement changes skills | Click **Wait** for C1. **C2 now acts from rank 3**: Covering shot is available and Close strike is disabled. C2 still gets its original turn despite being swapped. C3 is no longer in this round's remaining queue. |
-| Front/rear targeting | Restart. Use C3's selected Covering shot on any TARGET. C1 acts next at rank 1: Close strike becomes selected and only enemy ranks **1–2** are TARGETs; enemy ranks 3–4 cannot be attacked with that skill. |
-| Removal and compaction | Restart. On each crew turn, use the available attack against the enemy currently at rank 1. Once E1 reaches zero, its shape/card disappears; E2 becomes rank 1, E3 rank 2, E4 rank 3, and rank 4 says EMPTY. E1 cannot act later. |
-| Complete victory | Continue the same strategy without Move or Wait. With default data, victory occurs in **round 4**. C1 has 2/30 HP; C2–C4 have 30/30. No further combat action is accepted. |
-| Complete defeat | Restart and choose **Wait on every crew turn**. The enemy acts automatically. Crew are removed as their HP reaches zero; defeat occurs in **round 7**. Restart restores all eight actors; no persistent deaths exist yet. |
-| Deterministic replay | Restart and repeat the same abilities, target IDs, and swaps. Damage, initiative, ranks, and result should repeat. Different choices may change later random rolls. |
-| Repeated input | Rapidly double-click a target card. The current actor's action resolves once; it cannot act twice or submit a second action while resolution is locked. A fresh click on a later crew turn is a new action. |
-| Restart/leave safely | During an enemy response, click Restart or Back to Hub. The previous battle's delayed action must not damage a new battle or cause an error after leaving. |
-| Keyboard and layout | Use Tab/Shift+Tab or arrows to focus an enabled skill, then a TARGET/SWAP card; activate with Enter/Space. Check health, rank, remaining order, reasons, and outcomes at both resolutions below. |
+| Twelve skills | On each class's turn inspect its three buttons. Names and abilities differ by class; disabled reasons appear below the buttons. The full ability/rank table is in COMBAT_RULES.md. |
+| Close strike | Restart; Wait for C3, then Wait for C2. After E1 acts, C1 Breacher has Close strike. Select it, then enemy rank 1 or 2. A Ranger at the front still has Ranger skills, not Breacher skills. |
+| Fallback shot | Restart; on C3's opening turn choose Fallback shot → E4. C3 moves from rank 3 to 4, and C4 moves to rank 3. C3 has spent its turn; C4 retains its own turn. |
+| Tractor pull | Restart; C3 Wait. C2 selects Tractor pull → E4. E4 moves from rank 4 to 3; E3 shifts to rank 4. E1 cannot be selected because it is already at the front. |
+| Ram | Restart; C3 Wait, C2 Wait. After E1 acts, C1 selects Ram → E1. Damage resolves first, then surviving E1 moves from rank 1 to 2. |
+| Expose / Exploit | On the Technician's turn, Expose an enemy. Before that enemy's second following turn start, select the Ranger's Exploit signal. The target HP-loss preview shows 7–10 against an unprotected Exposed enemy (capped by remaining HP), versus its base 5–7. Exposed is not consumed by the attack. |
+| Status timing | Watch P, X and D counters on affected actors. P = Protected, X = Exposed, D = Scorch. Counters decrease at that actor's turn start; Scorch deals 2 first. They expire at zero. Reapplying refreshes to 2, never adds stacks. Hover a card for full status names. |
+| Healing limit | Use Field patch twice on injured allies during one battle. A third use is disabled with “No uses left this battle.” Full-health targets cannot waste a use. Restart, injure someone again, and the Medic has 2 uses. |
+| Strain enemy / relief | Click **Boarding patrol / switch** to restart as **Signal patrol**. E3 becomes Signal Echo. Wait until it raises crew strain; on the Medic's turn choose Steady voice → an ally with Str above zero. Str decreases by up to 20. It has no Shaken or persistence yet. |
+| Enemy roles | Boarding patrol: Mauler hits front, Bulwark protects another enemy, Tow Drone pulls rear crew forward, Needle Turret attacks rear crew. Signal patrol replaces only the Tow Drone with a strain attacker. Displaced enemies can use a weak fallback attack instead of choosing illegal targets. |
+| Victory / defeat | Fight using legal attacks, use Move to recover useful ranks, and heal injured crew. Both patrols can be won. Restart and Wait on every crew turn to lose; outcome is terminal and Restart restores everyone. Zero HP still removes an actor immediately in M4. |
+| Repeated input / restart | Double-click a target: one action resolves. Restart or switch patrol during an enemy delay: the old response must not damage the new battle. |
+| Keyboard / layout | Tab or arrows move focus; Enter activates the focused skill/card. Repeat at both sizes below. Read the three ability reasons, selected description, target damage, HP/strain/statuses, log and outcome. |
 
-There are two temporary attacks for each side, not the four classes yet:
+If a button appears wrong, capture the top actor/class/rank line, the buttons and the reason below them. The earlier Close strike report was not reproduced; its mouse-click regressions are retained using the original M3 fixtures. This does not establish the cause of the user's earlier observation.
 
-| Action | Actor ranks | Target ranks | Result |
-|---|---|---|---|
-| Close strike | 1–2 | Enemy 1–2 | Crew 6–8 damage; enemy 4–6 |
-| Covering shot | 3–4 | Enemy 1–4 | Crew 6–8 damage; enemy 4–6 |
-| Move | Any occupied rank | Adjacent ally | Swap; spend the actor's turn |
-| Wait | Any occupied rank | None | Spend the actor's turn |
-
-Both attacks hit automatically. Actual HP loss is capped at remaining health. At zero HP an actor is removed and surviving ranks close up; downed/revival rules arrive in milestone 5. Wait remains available even when an actor has no usable attack. Initiative is rerolled at each new round; swapping never rerolls it or changes the current queue.
-
-For **F6 / Run Current Scene**, stop with F8, open `res://scenes/battle_test.tscn` in the FileSystem dock, and press F6. The battle should run directly. Back to Hub, Main Menu, Escape, and F11 should still work. Stop, then F5 starts the main menu. Watch the Debugger for errors.
+For **F6 / Run Current Scene**, stop with F8, open `res://scenes/battle_test.tscn` in the FileSystem dock, and press F6. It should start the class battle directly. Back to Hub, Main Menu, Escape and F11 should still work.
 
 ### Exact resolution checks
 
@@ -102,7 +107,7 @@ The design canvas is 1920×1080; the default window is 1280×720. `canvas_items`
 | Container | A node that arranges children. `VBoxContainer` stacks them vertically; `HBoxContainer` puts them side by side; `MarginContainer` adds padding. |
 | Script | Typed GDScript that adds behaviour. `screen_navigation.gd` changes screens; `combat_rules.gd` resolves actions; `placeholder_stage.gd` only draws original geometric placeholders. |
 | Signal | A notification. A target card emits `pressed`; the screen submits the selected ability and target as a command. The controller emits `events_resolved`, and the screen displays the resulting damage text. |
-| Resource | Reusable authored data. `test_salvager.tres` holds starting health, Speed, and ability references; ability `.tres` files hold damage and ranks, while `prototype_theme.tres` holds visual styles. Neither stores the changing health of a particular actor. |
+| Resource | Reusable authored data. `breacher.tres` holds maximum health, Speed, and ability references; ability `.tres` files hold damage, ranks, use limits and ordered effects, while `prototype_theme.tres` holds visual styles. Neither stores the changing health of a particular actor. |
 
 To see a signal, open `main_menu.tscn`, select the **NewGame** button, and inspect its **Signals** list. Its `pressed` connection goes to the scene's root. To change a label, select the Label node and edit its **Text** property in the Inspector.
 
@@ -110,12 +115,12 @@ The battle owns its controller and enemy-delay Timer; there are no autoloads or 
 
 ### Change actor values in the Inspector
 
-1. Stop the game. Open `res://content/actors/test_salvager.tres` or `test_sentry.tres` in the FileSystem dock. Inspect **Max Health**, **Speed**, and **Abilities**. These are templates, not changing battle state.
-2. Open `res://content/abilities/crew_strike.tres` or `crew_shot.tres`. Inspect **Actor Ranks**, **Target Ranks**, **Damage Min**, and **Damage Max**. The two `enemy_*.tres` files define enemy attacks.
+1. Stop the game. Open `res://content/actors/breacher.tres` (or another class/enemy) in the FileSystem dock. Inspect **Max Health**, **Speed**, and **Abilities**. These are shared templates, not changing battle state.
+2. Open `res://content/abilities/field_patch.tres`, `cutting_beam.tres` or `breach_strike.tres`. Inspect **Actor Ranks**, **Target Ranks**, **Damage Min/Max**, **Max Uses**, and expand **Effects**. Status durations/amounts are in `res://content/statuses/`; strain cap and AI preferences are in `res://content/balance.tres`. Descriptions are authored text: update them if tuning numbers.
 3. For an optional experiment, record the original value, change a damage value or rank list, save, and run a new battle. The UI should use the new requirements. Restore original values afterward so tests and this walkthrough match.
 4. In `battle_test.tscn`, select **BattleController** to inspect **Battle Seed** (1729). Restart resets both initiative and damage randomness to that seed.
 
-`ContentCatalogue` explicitly preloads the actor files, which explicitly reference their attacks. Each combat actor owns its own current health. Formation and initiative track stable IDs separately. See [COMBAT_RULES.md](COMBAT_RULES.md) for interfaces and resolution order.
+`ContentCatalogue` explicitly preloads the actor files, which explicitly reference their attacks. Each combat actor owns its own health, battle strain, remaining statuses and use counters. Formation and initiative track stable IDs separately. See [COMBAT_RULES.md](COMBAT_RULES.md) for interfaces and resolution order.
 
 ## Automated checks
 
@@ -127,7 +132,7 @@ There is no test-framework dependency. `tests/run_tests.gd` runs rules without s
 & '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/setup_smoke.gd
 ```
 
-Expected: import exits 0 without project errors; rules print **78 checks, 0 failures** and **engine errors = 0**, exit 0; headless integration prints **107 checks, 0 failures**, exit 0. The rules suite compares full replay results across 64 seeds and verifies rejected commands do not change state or randomness. The integration suite checks legal target cards, swaps, rank compaction, visible disabled reasons, playable victory/defeat, repeated input across consecutive crew turns, restart cancellation, and the existing setup.
+Expected: import exits 0 without project errors; rules print **149 checks, 0 failures** and **engine errors = 0**, exit 0; headless integration prints **360 checks, 0 failures**, exit 0. The rules suite compares full replay results across 64 seeds and verifies rejected commands do not change state or randomness. The integration suite checks legal target cards, swaps, rank compaction, visible disabled reasons, playable victory/defeat, repeated input across consecutive crew turns, restart cancellation, and the existing setup.
 
 Use `run_tests.gd` as the entry point, not `combat_rules_test.gd`. The runner loads the suite after installing an engine error monitor so a script error cannot masquerade as a passing test. Check output as well as exit codes, particularly during import.
 
@@ -138,7 +143,7 @@ New-Item -ItemType Directory -Path '.artifacts' -Force | Out-Null
 & '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tests/setup_smoke.gd -- --capture
 ```
 
-Expected: **166 checks, 0 failures**, exit 0. Nineteen screenshots go into `.artifacts/`, including Move selection, swapped ranks, partial enemy compaction, victory, and defeat at both target sizes. Filenames identify the requested window size; the 1280×900 captures contain the 1280×720 viewport, excluding the Window's black bars.
+Expected: **539 checks, 0 failures**, exit 0. Fifty-nine screenshots go into `.artifacts/`, including every class skill, both patrols, all status counters, and outcomes at both target sizes. Controlled skill/status screenshots use test fixtures; the full patrol battles use natural turns. Filenames identify the requested window size; the 1280×900 captures contain the 1280×720 viewport, excluding the Window's black bars.
 
 To confirm failure exit behaviour:
 
@@ -149,7 +154,7 @@ $LASTEXITCODE
 $LASTEXITCODE
 ```
 
-Expected: the first command prints **79 checks, 1 intentional failure**, exit **1**. The second prints **78 checks, 0 assertion failures**, then one intentionally injected parse error, **engine errors = 1**, exit **1**. Neither option should be used for a normal passing run. The malformed script exists only in memory; no broken project file is written. See [Godot's command-line guide](https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html).
+Expected: the first command prints **150 checks, 1 intentional failure**, exit **1**. The second prints **149 checks, 0 assertion failures**, then one intentionally injected parse error, **engine errors = 1**, exit **1**. Neither option should be used for a normal passing run. The malformed script exists only in memory; no broken project file is written. See [Godot's command-line guide](https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html).
 
 Automated inputs are simulated inside Godot. The recorded rendering checks used this machine's NVIDIA Compatibility renderer; your physical controls, editor F6 workflow, and display/DPI readability still need the manual playtest above. No Windows export or other hardware has been tested. Exact executed commands, results, and earlier failures/fixes are recorded in [PROGRESS.md](PROGRESS.md).
 
@@ -167,4 +172,4 @@ The GitHub repository is [ConsumedMedia/Hollow-Signal](https://github.com/Consum
 
 After your acceptance playtest, inspect `git status`, commit intended changes, then use `git push` to upload the new commit. Saving a file alone does not upload it. Never commit credentials, engine binaries, or caches. This repository uses Windows certificate validation (`http.sslBackend=schannel`) with TLS verification enabled; no global Git settings were changed.
 
-**Next milestone, only after this playtest and when requested:** milestone 4, crew classes and enemy behaviour.
+**Next milestone, only after this playtest and when requested:** milestone 5, crew vulnerability, persistent strain, Shaken and shared power.
