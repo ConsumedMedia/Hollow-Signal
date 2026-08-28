@@ -4,11 +4,20 @@
 
 M5/M6 implementation and the reported room Resource fix are verified by Godot import, native rules, headless scene and rendered scene checks. The user reported "seems to be working" after the fix and requested GitHub submission on 2026-08-28. This records general M6 playtest acceptance, not individual confirmation of every README check or a separate M5 drill. Milestones 7–13 remain unauthorized.
 
-### GitHub checkpoint preparation — 2026-08-28
+### GitHub checkpoint and verified upload — 2026-08-28
 
 Reviewed `git status --short --branch`, `git remote -v`, `git log -4 --oneline`, `git diff --stat`, `git diff --numstat` and `git ls-files --others --exclude-standard`. The intended submission includes the existing M5/M6 implementation, room Resource/focus fixes, regression tests and documentation. Remote is `https://github.com/ConsumedMedia/Hollow-Signal.git`; before submission both main references were at `f6ad903`. No gameplay was edited for this upload; the passing engine runs below remain the verification evidence.
 
-`git check-ignore .tools/godot-4.7.2/Godot_v4.7.2-stable_win64.exe .godot/editor/project_metadata.cfg .artifacts/m6-room-fix-rules.log` returned all three paths, exit 0: engine binaries, generated cache and test artifacts are excluded. Keep authored `.uid` files. Git reports an unreadable optional user-level ignore file; repository ignore rules still apply. Commit/push results are confirmed after execution, not assumed from this preparation record.
+`git check-ignore .tools/godot-4.7.2/Godot_v4.7.2-stable_win64.exe .godot/editor/project_metadata.cfg .artifacts/m6-room-fix-rules.log` returned all three paths, exit 0: engine binaries, generated cache and test artifacts are excluded. Authored `.uid` files were retained. Git reports an unreadable optional user-level ignore file; repository ignore rules still apply.
+
+Executed upload checks:
+
+- `git add -- COMBAT_RULES.md EXPLORATION_RULES.md PROGRESS.md PROJECT_PLAN.md README.md project.godot combat content exploration scenes scripts tests`: exit 0; 62 intended source/test/document files staged, no engine/cache/artifacts.
+- `git diff --check` and `git diff --cached --check`: passed, no whitespace errors. Unstaged and untracked source listings were empty after staging.
+- `git commit -m "Implement milestones 5 and 6 with verified ship exploration"`: exit 0, implementation checkpoint `b5074db`.
+- `git push origin main`: exit 0, remote advanced `f6ad903..b5074db`.
+- `git ls-remote origin refs/heads/main` and `git rev-parse HEAD`: both returned `b5074dbc595d72b0de7bb859c4e45ae9243a3ad8`, confirming the GitHub upload.
+- `git status --short --branch`: clean `main...origin/main` after upload. This subsequent documentation-only update records that receipt; no gameplay changed and engine tests were not rerun for documentation edits.
 
 ### Room Resource parse error fix — current verification
 
@@ -564,10 +573,10 @@ Result: exit code 0; 13 milestone headings and 13 not-started statuses; exactly 
 - M5/M6 now add vulnerability, shared power and exploration within an in-memory expedition. Campaign, saving and audio are not implemented. Current verification and remaining manual checks are recorded at the top of this document.
 - The first M6 rendered run had four window/capture dimension assertion failures; the final repeat passed without a layout change. Cause is unconfirmed; retain logs if this recurs.
 - Determinism requires the same content, seed, commands, and pinned engine. Cross-version replay/save compatibility is not claimed.
-- Milestone 3 and 4 checkpoints and acceptance notes were pushed to GitHub at f6ad903 before M5. The user has now authorized a checkpoint/upload for M5/M6 and this fix; see the submission record above and Git history.
+- Milestones 5–6 and the room Resource/focus fix were uploaded and verified at `b5074db`; see the submission record above. Godot binaries and verification artifacts are deliberately not uploaded.
 
 ## Next steps
 
-1. Submit the reviewed M5/M6 checkpoint to GitHub and confirm the remote commit matches local HEAD.
+1. M5/M6 checkpoint uploaded and remote commit verified; preserve this baseline.
 2. Retain the README checks for regression testing and complete any unreported individual manual checks; fix further reports before another milestone.
 3. Start milestone 7 only when requested. Milestones 7–13 remain out of scope.

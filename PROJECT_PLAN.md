@@ -30,7 +30,7 @@ Repository: [ConsumedMedia/Hollow-Signal](https://github.com/ConsumedMedia/Hollo
 
 1. Milestone 4 received general user playtest acceptance on 2026-08-28; individual README.md checks were not separately reported. Retain those checks for regression testing.
 2. Fix reported problems before proceeding. The earlier Close strike observation was not reproduced; its tests remain, and the user authorized continuing without supplying a screenshot. Do not claim a confirmed fix for that report.
-3. M6 and the reported room Resource fix pass import, rules and scene checks. The user reported general success and requested GitHub submission on 2026-08-28. Submit the verified M5/M6 checkpoint, retain manual regressions, and await explicit milestone 7 authorization.
+3. M6 and the reported room Resource fix pass import, rules and scene checks. The user reported general success on 2026-08-28; M5/M6 checkpoint `b5074db` was uploaded and verified on GitHub. Retain manual regressions and await explicit milestone 7 authorization.
 
 ## Milestone 1 — Project setup
 
