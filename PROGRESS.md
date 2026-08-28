@@ -12,6 +12,30 @@ Existing scenes, navigation, artwork, documents, Git history, and the Desktop Go
 - Milestone 2: implementation and automated/rendered verification complete; user acceptance pending.
 - Milestones 3–13: not started or authorized.
 
+## GitHub upload — 2026-08-28
+
+User supplied and authorized upload to `https://github.com/ConsumedMedia/Hollow-Signal.git`. The repository was empty (`ls-remote --symref` exited 0 with no refs); no remote history was overwritten. Local `main` was clean at milestone 2 commit `65091eb`. Inspected tracked files and all history object paths: only project source, documents, and ignore markers are included, not engine binaries, caches, logs, screenshots, or exports. A filename-only scan for common private-key/token patterns found no matches in HEAD; this is a limited check, not a comprehensive security audit.
+
+Git's initial HTTPS check failed with OpenSSL `unable to get local issuer certificate (20)`. Retrying with Windows Schannel and TLS verification enabled succeeded. No certificate verification was disabled, no global configuration was changed, and no credentials were printed or stored in project files.
+
+Actual successful setup/upload commands, run from the project folder:
+
+```powershell
+git -c http.sslBackend=schannel -c http.sslVerify=true -c credential.interactive=false ls-remote --symref 'https://github.com/ConsumedMedia/Hollow-Signal.git'
+git remote add origin 'https://github.com/ConsumedMedia/Hollow-Signal.git'
+git config --local http.sslBackend schannel
+git config --local http.sslVerify true
+$env:GIT_TERMINAL_PROMPT = '0'
+git -c credential.interactive=false push -u origin main
+git rev-parse HEAD
+git -c credential.interactive=false ls-remote origin refs/heads/main
+git status --short --branch
+```
+
+All succeeded (exit 0). Push created remote `main` and set its upstream. Local HEAD and GitHub's main ref both returned **65091eb8956c78d2bc3b5f5b57467c2f7a209adf**; status was `## main...origin/main` with no changes. This confirms the source and all three existing milestone commits reached GitHub. The following documentation commit records this upload and updates the README and project plan.
+
+No game code changed during upload, so Godot checks were not rerun; milestone 2 results below still apply. No release executable, GitHub Actions workflow, or repository visibility/settings changes were requested or made. Next step remains the milestone 2 user playtest.
+
 ## Milestone 2 — Actual verification
 
 Commands ran from `C:\Users\CRS-Workstation\Game Dev` in PowerShell. Godot/Git checks ran with permission as the normal Windows user. No additional engine, plugin, test framework, or dependency was installed.

@@ -26,6 +26,8 @@ The user supplied the full plan on 2026-08-27 and then authorized milestone 1. O
 
 ## Current next steps
 
+Repository: [ConsumedMedia/Hollow-Signal](https://github.com/ConsumedMedia/Hollow-Signal), connected and initially pushed on 2026-08-28. Local `main` tracks `origin/main`; preserve milestone history and exclude local engine/cache/artifact files from commits.
+
 1. User performs the milestone 2 acceptance playtest in README.md: victory, defeat, restart/replay, repeated input, and layout at both target sizes.
 2. Fix any reported battle issue before proceeding.
 3. Begin milestone 3 (four-position combat) only when explicitly requested.

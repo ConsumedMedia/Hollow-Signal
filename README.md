@@ -153,6 +153,8 @@ Automated inputs are simulated inside Godot. The recorded rendering checks used 
 - `.uid` files are kept in Git so Godot script references remain stable.
 - All visible artwork is original rectangles, circles, and lines, with Godot's built-in font. No extracted assets, downloaded artwork, or audio is used.
 
-Git is local; no remote repository has been created or pushed. After your acceptance playtest, inspect `git status` before any checkpoint. Commit intended changes only; do not commit engine binaries or caches.
+The project and its milestone history are backed up at [ConsumedMedia/Hollow-Signal](https://github.com/ConsumedMedia/Hollow-Signal). Local `main` tracks `origin/main`. Godot binaries, caches, test logs, and screenshots are excluded; another computer needs the pinned engine from the setup instructions above.
+
+After your acceptance playtest, inspect `git status`, commit intended changes, then use `git push` to upload the new commit. Saving a file alone does not upload it. Never commit credentials, engine binaries, or caches. This repository uses Windows certificate validation (`http.sslBackend=schannel`) with TLS verification enabled; no global Git settings were changed.
 
 **Next milestone, only after this playtest and when requested:** milestone 3, four-position combat.
