@@ -45,7 +45,7 @@ theme_override_constants/separation = 28
 layout_mode = 2
 theme_override_colors/font_color = Color(0.47, 0.84, 0.85, 1)
 theme_override_font_sizes/font_size = 24
-text = "HOLLOW SIGNAL   /   PROTOTYPE 02"
+text = "HOLLOW SIGNAL   /   PROTOTYPE 03"
 
 [node name="Rule" type="HSeparator" parent="Margin/Layout"]
 layout_mode = 2
@@ -119,7 +119,7 @@ script = ExtResource("3_stage")
 layout_mode = 2
 theme_override_colors/font_color = Color(0.65, 0.73, 0.77, 1)
 theme_override_font_sizes/font_size = 24
-text = "One-versus-one combat is ready.\nNew Game opens the placeholder hub.\nNo campaign or saving yet."
+text = "Four-position combat is ready.\nNew Game opens the placeholder hub.\nNo campaign or saving yet."
 
 [node name="FooterRule" type="HSeparator" parent="Margin/Layout"]
 layout_mode = 2

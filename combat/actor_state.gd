@@ -19,3 +19,7 @@ func _init(actor_id: StringName, actor_definition: ActorDefinition, actor_side: 
 
 func is_conscious() -> bool:
 	return health > 0
+
+
+func short_name() -> String:
+	return ("C" if side == Team.CREW else "E") + String(id).get_slice("_", 1)

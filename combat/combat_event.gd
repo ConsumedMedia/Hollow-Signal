@@ -9,6 +9,12 @@ var amount: int
 var health_after: int = 0
 var round_number: int = 0
 var outcome: StringName = &""
+var source_name: String = ""
+var target_name: String = ""
+var source_rank: int = 0
+var target_rank: int = 0
+var rank_ids: Array[StringName] = []
+var team: ActorState.Team = ActorState.Team.CREW
 
 
 func _init(event_kind: StringName, source: StringName = &"", target: StringName = &"", value: int = 0) -> void:

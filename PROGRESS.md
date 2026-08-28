@@ -2,15 +2,89 @@
 
 ## Status — 2026-08-28
 
-The user reported "all is working" for milestone 1 and requested milestone 2. Milestone 2 is implemented: a complete one-versus-one Attack/Wait battle with seeded damage, independent health, legal-command validation, automatic enemy responses, victory/defeat, and restart. Import, native rules/integration checks, and rendered checks passed. The milestone 2 user playtest is pending. No formation, classes, campaign, roster, saving, audio, or later systems were added.
+Milestone 3 was requested after the GitHub upload and is implemented. Four actors per side now use rank-limited attacks, adjacent Move, universal Wait, and Speed plus seeded d6 initiative. Formation is separate from the round queue; defeated actors are removed, ranks close up, and dead queue entries are skipped. Import and native rules/integration/rendered checks passed. User acceptance of milestone 3 is pending.
 
-Existing scenes, navigation, artwork, documents, Git history, and the Desktop Godot 4.7.1 executable were preserved. The initial Git diff contained only Godot-editor normalization of `project.godot` (expanded input events, default-value/header/order changes). Those user changes were retained; this milestone updates the project version to `0.2.0-milestone-2`.
+The worktree was clean at `4224ee1` before editing. Existing history, setup/navigation, shapes, engine, native test runner, and authored/runtime separation were retained. No dependencies or assets were installed. Godot remains **4.7.2 Standard / Compatibility**, project version `0.3.0-milestone-3`. No milestone 4 or later systems were started.
 
 ## Completed milestones
 
 - Milestone 1: complete; user reported success on 2026-08-28. This is general user acceptance, not a claim that every individual manual step was reported separately.
-- Milestone 2: implementation and automated/rendered verification complete; user acceptance pending.
-- Milestones 3–13: not started or authorized.
+- Milestone 2: implementation and automated/rendered verification complete; user authorized moving to milestone 3, without separately reporting every manual check.
+- Milestone 3: implementation and automated/rendered verification complete; user playtest pending.
+- Milestones 4–13: not started or authorized.
+
+## Milestone 3 — Actual verification
+
+All commands ran from `C:\Users\CRS-Workstation\Game Dev` in PowerShell. Read the project plan, progress, rules, scene/controller, Resources, and existing tests before changing them. Git showed a clean `main...origin/main` at `4224ee1`. No applicable AGENTS.md was found; the already-located engine was invoked by explicit path, not assumed from PATH. Available shell, file editing, image inspection, and official Godot documentation were used. No external plugin or sub-agent was used.
+
+### Implementation choices
+
+- `AbilityDefinition` Resources hold damage and usable/target ranks. Actor definitions now reference abilities and hold Speed; current health remains in `ActorState`.
+- The test contains four instances of the same crew definition and four of the same enemy definition. They have two generic attacks, not class kits: Close strike from ranks 1–2 against ranks 1–2; Covering shot from ranks 3–4 against any enemy rank.
+- Rank arrays and the round queue contain stable IDs. Initiative draws occur in canonical ID order, then sort by Speed + d6 descending with ascending ID ties. Swaps do not reorder turns.
+- Move costs the actor's action, leaves the ally's turn intact, and updates rank requirements immediately. Wait remains usable even without any legal attack.
+- Removed actors leave no corpse. Survivors close ranks; queue advancement skips removed IDs. Downed/revival/permanent-death rules remain milestone 5.
+- UI shows the acting ID/rank, remaining initiative, current HP, TARGET/SWAP labels, and visible reasons for disabled skills. Repeated-input guards also cover consecutive crew turns; restart invalidates deferred callbacks and cancels the old enemy Timer.
+
+### Commands and final results
+
+Engine version:
+
+```powershell
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --version
+```
+
+Exit **0**: `4.7.2.stable.official.ed1daf0bf`. Native integration also confirms Standard (no Mono) and Compatibility.
+
+Import and independent battle start:
+
+```powershell
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --import --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m3-import.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --scene res://scenes/battle_test.tscn --quit-after 10 --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m3-start-battle.log'
+```
+
+Both exit **0**, no project errors. Direct scene startup is not a physical editor F6 check.
+
+Rules and scene integration:
+
+```powershell
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m3-rules.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m3-smoke.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m3-render.log' -- --capture
+```
+
+- Rules: **78 checks, 0 failures, engine errors 0; exit 0**.
+- Headless integration: **107 checks, 0 failures; exit 0**.
+- Rendered integration: **166 checks, 0 failures; exit 0**. OpenGL 3.3, NVIDIA 591.86, GeForce RTX 3080, Compatibility.
+
+Rules checks include 64-seed full replay equality, exact canonical initiative rolls/ties, one action per round, shared-definition isolation, no mutation on invalid/stale commands, actor/target rank restrictions, adjacent swaps, no extra or stolen turns, removal before a queued turn, compaction, terminal empty formations, and Wait-only progression for stranded rear-only actors. Four rounds of repeated swaps retain exactly one turn per actor. Move/Wait do not roll damage; initiative is rolled only at round boundaries.
+
+Integration checks exercise the actual scene's action selection/target cards (including simulated GUI mouse input), disabled reasons, both sides' visible ranks, swaps across ranks 2/3, partial enemy removal, full victory/defeat, duplicate signals, initial focus, restart during resolution/enemy delay, safe navigation, and the earlier setup checks.
+
+Negative runner checks:
+
+```powershell
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m3-negative-assert.log' -- --self-test-failure
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m3-negative-script.log' -- --self-test-script-error
+```
+
+Expected failures confirmed: **79 checks, 1 intentional assertion failure, exit 1**; and **78 checks, 0 assertion failures, 1 intentional in-memory parse error, exit 1**. No broken script file was written.
+
+### Visual review and observed outcomes
+
+The final renderer run produced **19 viewport PNGs**: three screens at 1280×720, 1920×1080, and 1280×900; Move selection, swapped formation, partial enemy compaction, victory, and defeat at both acceptance sizes. The taller-window captures exclude the Window's letterbox bars, as documented in milestone 1.
+
+Reviewed initial battle, Move selection, swapped ranks, partial removal, and terminal screenshots across the target resolutions, plus the changed hub at 720p. Rank/ID/HP labels, active actor, targets, disabled reasons, navigation, and results are readable and unclipped in the inspected captures. Initial review prompted a local disabled-button style with clearer health text and stable card dimensions, and initial keyboard focus was moved to the usable attack. Final automated checks were rerun after those changes.
+
+Default seed 1729 starts **C3:11, C1:9, C2:9, E1:9, C4:7, E4:6, E2:4, E3:4**. Always attacking enemy rank 1 wins in **round 4 after 19 total actions**, with C1 at 2 HP and the other crew at 30. Waiting on every crew turn loses in **round 7 after 45 total actions**. E1's first removal visibly puts E2 at rank 1 and leaves rank 4 empty.
+
+Earlier passing runs had 77 rules, 101 headless, and 154 rendered checks before the final Wait, initial-focus, and partial-compaction coverage was added. No failed product assertions or script errors were observed in this milestone's normal runs. Intentional failure logs are excluded from clean-log checks.
+
+### Review, limitations, and checkpoint
+
+`git diff --check` passed. The first `git diff --cached --check` caught one extra blank line at the end of each new ability Resource; those were removed, and the staged check then passed. Scanning final import, rules, smoke, render, and startup logs with `rg -n 'ERROR|WARNING|SCRIPT ERROR|FAIL:'` returned no matches (exit 1 means none). The existing native test files were extended; no new testing dependency was added. README.md and COMBAT_RULES.md now describe the current rules and exact playtests.
+
+The milestone checkpoint is local. A further GitHub push was not requested in this turn; the last verified upload was milestone 2 and its repository documentation. No export/build, manual physical input, other hardware, or external player testing is claimed. The tests deliberately use valid queue fixtures for isolated rule cases; full replay and integration tests use actual seeded queues.
 
 ## GitHub upload — 2026-08-28
 
@@ -242,15 +316,16 @@ Result: exit code 0; 13 milestone headings and 13 not-started statuses; exactly 
 
 ## Known issues and untested work
 
-- No known project-code defect found by current checks.
-- Milestone 2 user playtest pending: physical Attack/Wait/restart/navigation, editor F5/F6/F8 workflow, and readability on the user's display/DPI settings. Exact steps and expected results are in README.md. Milestone 1 has general user acceptance, without a separate report for every manual check.
-- Initial imports have occasionally exited 1 without printed errors; the final milestone 2 import passed. Report any recurrence with the log rather than assuming success.
-- Only this machine's NVIDIA Compatibility renderer was exercised. No Windows export or other hardware testing; exports belong to milestone 13.
-- This simple battle is not a balance test for the later tactical game. Fixed crew-first order, no ranks, and defeat at zero HP are intentional interim M2 rules. No classes, statuses, downed/permanent death, strain, power, saving, audio, or future milestone behaviour is implemented or tested.
-- Replay expectations apply to unchanged content, commands, seed, and the pinned engine. Cross-version replay compatibility and save/load are not claimed.
+- No known code defect found by current checks. The test attacks and balance are placeholders, not the final class abilities.
+- Milestone 3 physical keyboard/mouse input, editor F5/F6/F8 workflow, and display/DPI readability still need the user's README.md playtest. Automated GUI input and native screenshots are not a substitute for that.
+- Only this machine's NVIDIA Compatibility renderer was exercised. No Windows export or other hardware testing; exports remain milestone 13.
+- Earlier milestone imports occasionally exited 1 without printed errors. Both milestone 3 imports passed; report any future recurrence with its log.
+- No classes/statuses, downed/permanent death, strain/power, campaign, saving, audio, or later systems are implemented or tested. Zero HP currently removes the actor from this test only.
+- Determinism requires the same content, seed, commands, and pinned engine. Cross-version replay/save compatibility is not claimed.
+- Current milestone 3 changes are local until a further GitHub push is requested.
 
 ## Next steps
 
-1. User opens the pinned editor and follows README.md's milestone 2 playtest: win, lose, replay, repeated input, pending-response cancellation, and target resolutions.
-2. Fix any reported issue and update verification before another milestone.
-3. Start milestone 3 only when requested. Extend the existing rules with ranks, Speed initiative, and Move; preserve definition/state separation and the test suite.
+1. Follow README.md's milestone 3 playtest, starting with C3 swapping with C2 to cross the front/rear boundary.
+2. Check rank-based targeting, initiative, removal, victory/defeat, restart, and both target resolutions; report any errors before another system.
+3. Start milestone 4 only when requested, using the existing ability Resources and rules as the foundation for class skills and enemy behaviours.

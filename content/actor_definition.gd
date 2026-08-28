@@ -5,10 +5,23 @@ extends Resource
 @export var id: StringName = &""
 @export var display_name: String = ""
 @export_range(1, 1000) var max_health: int = 30
-@export_range(1, 1000) var damage_min: int = 6
-@export_range(1, 1000) var damage_max: int = 8
+@export_range(0, 100) var speed: int = 6
+@export var abilities: Array[AbilityDefinition] = []
 
 
 func is_valid() -> bool:
-	return not id.is_empty() and not display_name.is_empty() and max_health > 0 \
-		and damage_min > 0 and damage_max >= damage_min
+	if id.is_empty() or display_name.is_empty() or max_health <= 0 or speed < 0:
+		return false
+	var seen: Array[StringName] = []
+	for ability: AbilityDefinition in abilities:
+		if ability == null or not ability.is_valid() or ability.id in seen:
+			return false
+		seen.append(ability.id)
+	return true
+
+
+func get_ability(ability_id: StringName) -> AbilityDefinition:
+	for ability: AbilityDefinition in abilities:
+		if ability.id == ability_id:
+			return ability
+	return null

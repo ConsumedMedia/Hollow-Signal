@@ -1,9 +1,21 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/battle_screen.gd" id="1_nav"]
 [ext_resource type="Theme" path="res://ui/prototype_theme.tres" id="2_theme"]
 [ext_resource type="Script" path="res://scripts/placeholder_stage.gd" id="3_stage"]
 [ext_resource type="Script" path="res://scripts/battle_controller.gd" id="4_controller"]
+
+[sub_resource type="StyleBoxFlat" id="DisabledButton"]
+content_margin_left = 28.0
+content_margin_top = 18.0
+content_margin_right = 28.0
+content_margin_bottom = 18.0
+bg_color = Color(0.055, 0.075, 0.095, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.16, 0.23, 0.28, 1)
 
 [node name="BattleTest" type="Control"]
 layout_mode = 3
@@ -14,7 +26,7 @@ grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("2_theme")
 script = ExtResource("1_nav")
-initial_focus = NodePath("Margin/Layout/Actions/Attack")
+initial_focus = NodePath("Margin/Layout/Navigation/Restart")
 back_scene = "res://scenes/hub.tscn"
 
 [node name="BattleController" type="Node" parent="."]
@@ -39,100 +51,227 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 96
-theme_override_constants/margin_top = 40
-theme_override_constants/margin_right = 96
-theme_override_constants/margin_bottom = 32
+theme_override_constants/margin_left = 64
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 64
+theme_override_constants/margin_bottom = 24
 
 [node name="Layout" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 10
 
 [node name="Header" type="Label" parent="Margin/Layout"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.47, 0.84, 0.85, 1)
 theme_override_font_sizes/font_size = 24
-text = "HOLLOW SIGNAL   /   ONE-VERSUS-ONE BATTLE TEST"
+text = "HOLLOW SIGNAL   /   FOUR-POSITION BATTLE TEST"
 
 [node name="TurnLabel" type="Label" parent="Margin/Layout"]
-unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 40
-text = "Round 1 / Your turn"
+unique_name_in_owner = true
+theme_override_font_sizes/font_size = 32
+text = "Round 1 / Initiative"
+
+[node name="OrderLabel" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_override_font_sizes/font_size = 24
+text = "Remaining order (Speed + d6)"
 
 [node name="Sides" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
 
+
 [node name="CrewLabel" type="Label" parent="Margin/Layout/Sides"]
-unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.47, 0.84, 0.85, 1)
-text = "CREW / Salvager\nHP —"
+theme_override_font_sizes/font_size = 24
+text = "CREW   /   rear  4  3  2  1  front >"
 horizontal_alignment = 1
 
 [node name="EnemyLabel" type="Label" parent="Margin/Layout/Sides"]
-unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.86, 0.56, 0.41, 1)
-text = "ENEMY / Faulted Sentry\nHP —"
+theme_override_font_sizes/font_size = 24
+text = "< front  1  2  3  4  rear   /   ENEMY"
 horizontal_alignment = 1
 
 [node name="Stage" type="Control" parent="Margin/Layout"]
-custom_minimum_size = Vector2(0, 280)
 layout_mode = 2
+custom_minimum_size = Vector2(0, 160)
 size_flags_vertical = 3
 mouse_filter = 2
 script = ExtResource("3_stage")
 display = 1
 
-[node name="StatusPanel" type="PanelContainer" parent="Margin/Layout"]
+[node name="Formation" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
+theme_override_constants/separation = 0
 
-[node name="Status" type="Label" parent="Margin/Layout/StatusPanel"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 96)
+[node name="CrewSlots" type="HBoxContainer" parent="Margin/Layout/Formation"]
 layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="CrewRank4" type="Button" parent="Margin/Layout/Formation/CrewSlots"]
+theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
+theme_override_styles/disabled = SubResource("DisabledButton")
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 24
-text = "Battle events appear here."
-autowrap_mode = 2
+text = "Rank 4\nHP —\nStanding"
+
+[node name="CrewRank3" type="Button" parent="Margin/Layout/Formation/CrewSlots"]
+theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
+theme_override_styles/disabled = SubResource("DisabledButton")
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "Rank 3\nHP —\nStanding"
+
+[node name="CrewRank2" type="Button" parent="Margin/Layout/Formation/CrewSlots"]
+theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
+theme_override_styles/disabled = SubResource("DisabledButton")
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "Rank 2\nHP —\nStanding"
+
+[node name="CrewRank1" type="Button" parent="Margin/Layout/Formation/CrewSlots"]
+theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
+theme_override_styles/disabled = SubResource("DisabledButton")
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "Rank 1\nHP —\nStanding"
+
+[node name="Gap" type="Control" parent="Margin/Layout/Formation"]
+layout_mode = 2
+custom_minimum_size = Vector2(64, 0)
+mouse_filter = 2
+
+[node name="EnemySlots" type="HBoxContainer" parent="Margin/Layout/Formation"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="EnemyRank1" type="Button" parent="Margin/Layout/Formation/EnemySlots"]
+theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
+theme_override_styles/disabled = SubResource("DisabledButton")
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "Rank 1\nHP —\nStanding"
+
+[node name="EnemyRank2" type="Button" parent="Margin/Layout/Formation/EnemySlots"]
+theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
+theme_override_styles/disabled = SubResource("DisabledButton")
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "Rank 2\nHP —\nStanding"
+
+[node name="EnemyRank3" type="Button" parent="Margin/Layout/Formation/EnemySlots"]
+theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
+theme_override_styles/disabled = SubResource("DisabledButton")
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "Rank 3\nHP —\nStanding"
+
+[node name="EnemyRank4" type="Button" parent="Margin/Layout/Formation/EnemySlots"]
+theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
+theme_override_styles/disabled = SubResource("DisabledButton")
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "Rank 4\nHP —\nStanding"
 
 [node name="Actions" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
-theme_override_constants/separation = 24
+theme_override_constants/separation = 16
 
-[node name="Attack" type="Button" parent="Margin/Layout/Actions"]
-unique_name_in_owner = true
+[node name="Strike" type="Button" parent="Margin/Layout/Actions"]
+theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
+theme_override_styles/disabled = SubResource("DisabledButton")
 layout_mode = 2
+unique_name_in_owner = true
 size_flags_horizontal = 3
-text = "Attack Sentry"
+text = "Close strike"
+
+[node name="Shot" type="Button" parent="Margin/Layout/Actions"]
+theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
+theme_override_styles/disabled = SubResource("DisabledButton")
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
+text = "Covering shot"
+
+[node name="Move" type="Button" parent="Margin/Layout/Actions"]
+theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
+theme_override_styles/disabled = SubResource("DisabledButton")
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
+text = "Move / swap"
 
 [node name="Wait" type="Button" parent="Margin/Layout/Actions"]
-unique_name_in_owner = true
+theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
+theme_override_styles/disabled = SubResource("DisabledButton")
 layout_mode = 2
+unique_name_in_owner = true
 size_flags_horizontal = 3
-text = "Wait"
+text = "Wait / skip"
 
-[node name="Restart" type="Button" parent="Margin/Layout/Actions"]
-unique_name_in_owner = true
+[node name="ActionHelp" type="Label" parent="Margin/Layout"]
 layout_mode = 2
-size_flags_horizontal = 3
-text = "Restart same seed"
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 84)
+theme_override_font_sizes/font_size = 24
+text = "Attack requirements and selection appear here."
+autowrap_mode = 2
+
+[node name="StatusPanel" type="PanelContainer" parent="Margin/Layout"]
+layout_mode = 2
+
+
+[node name="Status" type="Label" parent="Margin/Layout/StatusPanel"]
+layout_mode = 2
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 84)
+theme_override_font_sizes/font_size = 24
+text = "Battle events appear here."
+autowrap_mode = 2
 
 [node name="Navigation" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
 theme_override_constants/separation = 24
 
-[node name="BackToHub" type="Button" parent="Margin/Layout/Navigation"]
-unique_name_in_owner = true
+[node name="Restart" type="Button" parent="Margin/Layout/Navigation"]
 layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
+text = "Restart same seed"
+
+[node name="BackToHub" type="Button" parent="Margin/Layout/Navigation"]
+layout_mode = 2
+unique_name_in_owner = true
 size_flags_horizontal = 3
 text = "Back to Hub"
 
 [node name="MainMenu" type="Button" parent="Margin/Layout/Navigation"]
-unique_name_in_owner = true
 layout_mode = 2
+unique_name_in_owner = true
 size_flags_horizontal = 3
 text = "Main Menu"
 
@@ -143,8 +282,6 @@ theme_override_font_sizes/font_size = 24
 text = "ESC hub   /   TAB or ARROWS to focus   /   ENTER to confirm   /   F11 fullscreen"
 
 [connection signal="timeout" from="BattleController/EnemyDelay" to="BattleController" method="_on_enemy_delay_timeout"]
-[connection signal="pressed" from="Margin/Layout/Actions/Attack" to="." method="_on_attack_pressed"]
-[connection signal="pressed" from="Margin/Layout/Actions/Wait" to="." method="_on_wait_pressed"]
-[connection signal="pressed" from="Margin/Layout/Actions/Restart" to="." method="restart_battle"]
+[connection signal="pressed" from="Margin/Layout/Navigation/Restart" to="." method="restart_battle"]
 [connection signal="pressed" from="Margin/Layout/Navigation/BackToHub" to="." method="open_screen" binds= ["res://scenes/hub.tscn"]]
 [connection signal="pressed" from="Margin/Layout/Navigation/MainMenu" to="." method="open_screen" binds= ["res://scenes/main_menu.tscn"]]

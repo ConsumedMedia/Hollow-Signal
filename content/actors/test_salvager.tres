@@ -1,11 +1,14 @@
-[gd_resource type="Resource" script_class="ActorDefinition" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ActorDefinition" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://content/actor_definition.gd" id="1"]
+[ext_resource type="Script" path="res://content/ability_definition.gd" id="2"]
+[ext_resource type="Resource" path="res://content/abilities/crew_strike.tres" id="3"]
+[ext_resource type="Resource" path="res://content/abilities/crew_shot.tres" id="4"]
 
 [resource]
 script = ExtResource("1")
 id = &"test_salvager"
 display_name = "Salvager"
 max_health = 30
-damage_min = 6
-damage_max = 8
+speed = 6
+abilities = Array[ExtResource("2")]([ExtResource("3"), ExtResource("4")])

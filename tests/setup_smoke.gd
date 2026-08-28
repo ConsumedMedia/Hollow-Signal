@@ -100,65 +100,164 @@ func _test_battle_flow() -> void:
 	root.size = Vector2i(1280, 720)
 	await _open(BATTLE)
 	var controller: BattleController = current_scene.get_node("BattleController") as BattleController
-	var attack: Button = current_scene.get_node("%Attack") as Button
-	var wait: Button = current_scene.get_node("%Wait") as Button
-	_check(controller.state.actors[0].health == 30 and controller.state.actors[1].health == 20, "Battle starts with independent full-health actors")
-	_check(not attack.disabled and not wait.disabled and root.gui_get_focus_owner() == attack, "Player actions begin enabled and focused")
-	var initial_rng: int = controller.rng.state
-	attack.pressed.emit()
-	var first_damage: int = 20 - controller.state.actors[1].health
-	attack.pressed.emit()
-	wait.pressed.emit()
-	_check(controller.state.turn_number == 1 and controller.phase == BattleController.Phase.ENEMY_TURN, "Repeated player input resolves only one action")
-	_check(attack.disabled and wait.disabled, "Player buttons disabled during enemy response")
-	_check(first_damage >= 6 and first_damage <= 8, "First attack displays the authored damage range")
-	_check((current_scene.get_node("%Status") as Label).text.contains("%d damage" % first_damage), "Damage event appears in the combat log")
-	(current_scene.get_node("%Restart") as Button).pressed.emit()
-	_check(controller.state.turn_number == 0 and controller.rng.state == initial_rng, "Restart resets state and seed during an enemy response")
-	await create_timer(0.5).timeout
-	_check(controller.state.actors[0].health == 30 and controller.state.turn_number == 0, "Restart cancels the previous battle's queued enemy action")
 	controller.enemy_timer.wait_time = 0.01
-	attack.pressed.emit()
-	_check(20 - controller.state.actors[1].health == first_damage, "Restart repeats the same first damage roll")
-	await _await_enemy(controller)
-	_check(controller.state.turn_number == 2 and controller.state.actors[0].health < 30, "Enemy responds once and returns the player's turn")
-	for turn: int in range(10):
-		if controller.state.outcome != &"ongoing":
+	await _await_player(controller)
+	var state: CombatState = controller.state
+	print("M3 DEFAULT ORDER: ", state.round_order, " / ", state.initiative_scores)
+	_check(state.actors.size() == 8 and state.crew_ranks.size() == 4 and state.enemy_ranks.size() == 4, "UI starts with four actors on each side")
+	_check((current_scene.get_node("%TurnLabel") as Label).text.contains(state.get_actor(state.active_actor_id).short_name()), "Current actor identified in header")
+	_check((current_scene.get_node("%OrderLabel") as Label).text.contains("Speed + d6"), "Initiative queue visible")
+	_check((current_scene.get_node("%Wait") as Button).disabled == false, "Wait enabled on crew turns")
+	_check(root.gui_get_focus_owner() == current_scene.get_node("%Shot"), "Initial keyboard focus selects the usable rear attack")
+	var initial_rng: int = controller.rng.state
+	var initial_order: Array[StringName] = state.round_order.duplicate()
+	var attack_command: ActionCommand = _first_attack(state)
+	var target: ActorState = state.get_actor(attack_command.target_ids[0])
+	current_scene.call("select_action", attack_command.action_id)
+	var target_button: Button = _slot(target.side, state.get_rank(target.id))
+	_check(not target_button.disabled and target_button.text.contains("TARGET"), "Legal attack targets are clickable and labelled")
+	var bad_target: Button = _slot(ActorState.Team.CREW, state.get_rank(state.active_actor_id))
+	bad_target.pressed.emit()
+	_check(state.turn_number == 0, "Illegal target signal cannot change battle state")
+	# Repeated signals are stronger than clicks: even disabled buttons can emit.
+	target_button.pressed.emit()
+	var first_damage: int = 20 - target.health
+	target_button.pressed.emit()
+	(current_scene.get_node("%Wait") as Button).pressed.emit()
+	_check(state.turn_number == 1 and controller.phase == BattleController.Phase.RESOLVING, "Same-frame input resolves one action even before another crew turn")
+	_check((current_scene.get_node("%Strike") as Button).disabled and (current_scene.get_node("%Wait") as Button).disabled, "All actions lock while resolving")
+	_check((current_scene.get_node("%Status") as Label).text.contains("%d damage" % first_damage), "Damage snapshot reaches combat log")
+	(current_scene.get_node("%Restart") as Button).pressed.emit()
+	await _settle()
+	_check(controller.state.turn_number == 0 and controller.rng.state == initial_rng and controller.state.round_order == initial_order, "Restart cancels deferred resolution and repeats initiative")
+	# Real GUI mouse input reaches an enemy card after selection.
+	attack_command = _first_attack(controller.state)
+	current_scene.call("select_action", attack_command.action_id)
+	target = controller.state.get_actor(attack_command.target_ids[0])
+	await _click_button(_slot(target.side, controller.state.get_rank(target.id)))
+	_check(20 - target.health == first_damage, "GUI target click repeats the first damage roll after restart")
+	await _await_player(controller)
+
+	# Reach a boundary between front and rear without overriding rules.
+	(current_scene.get_node("%Restart") as Button).pressed.emit()
+	for attempt: int in range(16):
+		await _await_player(controller)
+		if controller.state.get_rank(controller.state.active_actor_id) in [2, 3]:
 			break
-		attack.pressed.emit()
-		await _await_enemy(controller)
-	_check(controller.state.outcome == &"victory", "Player can win a complete battle through the UI")
-	_check(attack.disabled and wait.disabled and (current_scene.get_node("%TurnLabel") as Label).text.contains("VICTORY"), "Victory is visible and combat input is disabled")
-	var final_turn: int = controller.state.turn_number
-	var final_rng: int = controller.rng.state
-	attack.pressed.emit()
-	wait.pressed.emit()
-	_check(controller.state.turn_number == final_turn and controller.rng.state == final_rng, "Post-victory input cannot change state or RNG")
+		(current_scene.get_node("%Wait") as Button).pressed.emit()
+		await _settle()
+	state = controller.state
+	var mover: StringName = state.active_actor_id
+	var from_rank: int = state.get_rank(mover)
+	var to_rank: int = 3 if from_rank == 2 else 2
+	var ally: ActorState = state.actor_at(ActorState.Team.CREW, to_rank)
+	var order_before: Array[StringName] = state.round_order.duplicate()
+	var turn_before: int = state.turn_number
+	var before_strike: bool = CombatRules.ability_reason(state, mover, &"strike").is_empty()
+	(current_scene.get_node("%Move") as Button).pressed.emit()
+	_check(not _slot(ActorState.Team.CREW, to_rank).disabled and _slot(ActorState.Team.CREW, to_rank).text.contains("SWAP"), "Move highlights adjacent allies")
+	_check(_slot(ActorState.Team.CREW, from_rank).disabled and _slot(ActorState.Team.ENEMY, 1).disabled, "Move disables self and opposing targets")
+	await _check_outcome_layout("battle_move")
+	_slot(ActorState.Team.CREW, to_rank).pressed.emit()
+	await _settle()
+	_check(state.get_rank(mover) == to_rank and state.get_rank(ally.id) == from_rank, "UI swap changes both ranks")
+	_check(state.turn_number == turn_before + 1 and state.round_order == order_before, "UI swap consumes one turn and keeps the round queue")
+	_check(CombatRules.ability_reason(state, mover, &"strike").is_empty() != before_strike, "Front/rear crossing immediately changes ability legality")
+	_check((current_scene.get_node("%Status") as Label).text.contains("swaps rank"), "Move event explains action cost")
+	await _await_player(controller)
+	var rank: int = state.get_rank(state.active_actor_id)
+	_check((current_scene.get_node("%Strike") as Button).disabled == (rank > 2) and (current_scene.get_node("%Shot") as Button).disabled == (rank <= 2), "Displayed skill availability follows the current rank")
+	_check((current_scene.get_node("%ActionHelp") as Label).text.contains("Needs actor ranks"), "Disabled skill reason is visible without hovering")
+	await _check_outcome_layout("battle_moved")
+
+	# Restart while the timer for an enemy is pending.
+	for attempt: int in range(16):
+		if controller.phase == BattleController.Phase.ENEMY_TURN:
+			break
+		controller.enemy_timer.wait_time = 0.4
+		(current_scene.get_node("%Wait") as Button).pressed.emit()
+		await _settle()
+	_check(controller.phase == BattleController.Phase.ENEMY_TURN, "Enemy phase reached automatically from the initiative queue")
+	(current_scene.get_node("%Restart") as Button).pressed.emit()
+	await create_timer(0.5).timeout
+	_check(controller.state.turn_number == 0 and controller.state.get_actor(&"crew_1").health == 30, "Restart cancels the previous battle's pending enemy action")
+	controller.enemy_timer.wait_time = 0.001
+	for attempt: int in range(12):
+		await _await_player(controller)
+		if controller.state.enemy_ranks.size() < 4:
+			break
+		var command: ActionCommand = _first_attack(controller.state)
+		current_scene.call("select_action", command.action_id)
+		var enemy: ActorState = controller.state.get_actor(command.target_ids[0])
+		_slot(enemy.side, controller.state.get_rank(enemy.id)).pressed.emit()
+		await _settle()
+	_check(controller.state.get_actor(&"enemy_1") == null and _slot(ActorState.Team.ENEMY, 1).text.contains("E2") and _slot(ActorState.Team.ENEMY, 4).text.contains("EMPTY"), "First enemy removal updates visible rank labels and empties the rear slot")
+	await _check_outcome_layout("battle_compacted")
+	await _play_to_outcome(controller, false)
+	_check(controller.state.outcome == &"victory", "Four-position battle can be won through UI targets")
+	_check((current_scene.get_node("%TurnLabel") as Label).text.contains("VICTORY") and (current_scene.get_node("%Wait") as Button).disabled, "Victory visible and input terminal")
+	var terminal_turn: int = controller.state.turn_number
+	(current_scene.get_node("%Wait") as Button).pressed.emit()
+	_check(controller.state.turn_number == terminal_turn, "Post-victory input has no effect")
 	await _check_outcome_layout("battle_victory")
+	print("M3 VICTORY: round ", controller.state.round_number, " / turns ", controller.state.turn_number)
 	(current_scene.get_node("%Restart") as Button).pressed.emit()
-	for turn: int in range(12):
-		if controller.state.outcome != &"ongoing":
-			break
-		wait.pressed.emit()
-		await _await_enemy(controller)
-	_check(controller.state.outcome == &"defeat" and controller.state.actors[1].health == 20, "Waiting can lose a complete battle without damaging the enemy")
-	_check(attack.disabled and wait.disabled and (current_scene.get_node("%TurnLabel") as Label).text.contains("DEFEAT"), "Defeat is visible and combat input is disabled")
+	await _play_to_outcome(controller, true)
+	_check(controller.state.outcome == &"defeat" and controller.state.crew_ranks.is_empty(), "Waiting can lose the full party battle")
+	_check((current_scene.get_node("%TurnLabel") as Label).text.contains("DEFEAT") and (current_scene.get_node("%Move") as Button).disabled, "Defeat visible and input terminal")
 	await _check_outcome_layout("battle_defeat")
+	print("M3 DEFEAT: round ", controller.state.round_number, " / turns ", controller.state.turn_number)
 	(current_scene.get_node("%Restart") as Button).pressed.emit()
-	_check(controller.state.outcome == &"ongoing" and controller.state.actors[0].health == 30, "Restart works after defeat")
-	attack.pressed.emit()
+	_check(controller.state.actors.size() == 8 and controller.state.outcome == &"ongoing", "Restart restores all eight actors after defeat")
+	for attempt: int in range(16):
+		if controller.phase == BattleController.Phase.ENEMY_TURN:
+			break
+		controller.enemy_timer.wait_time = 0.4
+		(current_scene.get_node("%Wait") as Button).pressed.emit()
+		await _settle()
 	(current_scene.get_node("%BackToHub") as Button).pressed.emit()
 	await _settle()
-	await create_timer(0.1).timeout
+	await create_timer(0.5).timeout
 	_check(current_scene.scene_file_path == HUB, "Leaving during enemy response safely frees the battle")
 
 
-func _await_enemy(controller: BattleController) -> void:
-	for attempt: int in range(200):
-		if controller.phase != BattleController.Phase.ENEMY_TURN:
+func _slot(team: ActorState.Team, rank: int) -> Button:
+	var prefix: String = "Crew" if team == ActorState.Team.CREW else "Enemy"
+	return current_scene.get_node("%%%sRank%d" % [prefix, rank]) as Button
+
+
+func _first_attack(state: CombatState) -> ActionCommand:
+	for command: ActionCommand in CombatRules.get_legal_actions(state, state.active_actor_id):
+		if command.action_id not in [&"move", &"wait"]:
+			return command
+	return null
+
+
+func _await_player(controller: BattleController) -> void:
+	for attempt: int in range(500):
+		if controller.phase in [BattleController.Phase.PLAYER_INPUT, BattleController.Phase.FINISHED]:
 			return
 		await create_timer(0.01).timeout
-	_check(false, "Enemy turn timeout")
+	_check(false, "Enemy/resolution timeout")
+
+
+func _play_to_outcome(controller: BattleController, waits: bool) -> void:
+	for action: int in range(200):
+		await _await_player(controller)
+		if controller.state.outcome != &"ongoing":
+			return
+		if waits:
+			(current_scene.get_node("%Wait") as Button).pressed.emit()
+		else:
+			var command: ActionCommand = _first_attack(controller.state)
+			if command == null:
+				(current_scene.get_node("%Wait") as Button).pressed.emit()
+			else:
+				current_scene.call("select_action", command.action_id)
+				var target: ActorState = controller.state.get_actor(command.target_ids[0])
+				_slot(target.side, controller.state.get_rank(target.id)).pressed.emit()
+		await _settle()
+	_check(false, "Battle did not reach a terminal outcome")
 
 
 func _check_outcome_layout(artifact_name: String) -> void:

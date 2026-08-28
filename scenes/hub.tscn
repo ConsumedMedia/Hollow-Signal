@@ -104,7 +104,7 @@ text = "First contact is ready"
 
 [node name="Description" type="Label" parent="Margin/Layout/Body/SetupPanel/Info"]
 layout_mode = 2
-text = "The hub is still a placeholder.\n\nOpen the battle test to fight a Faulted Sentry using Attack and Wait."
+text = "The hub is still a placeholder.\n\nOpen the battle test to command four Salvagers using rank-based attacks, Move, and Wait."
 autowrap_mode = 2
 
 [node name="Rule" type="HSeparator" parent="Margin/Layout/Body/SetupPanel/Info"]

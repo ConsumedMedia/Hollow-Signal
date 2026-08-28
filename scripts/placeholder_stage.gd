@@ -10,8 +10,9 @@ const CYAN: Color = Color("77d5d9")
 const RUST: Color = Color("dc9069")
 
 # Presentation flags only, supplied by the battle screen from resolved state.
-var crew_defeated: bool = false
-var enemy_defeated: bool = false
+var crew_ids: Array[StringName] = []
+var enemy_ids: Array[StringName] = []
+var active_id: StringName = &""
 
 
 func _ready() -> void:
@@ -58,11 +59,18 @@ func _draw_battle() -> void:
 	draw_rect(Rect2(0, floor_y, size.x, size.y - floor_y), Color("0d1620"))
 	draw_line(Vector2(0, floor_y), Vector2(size.x, floor_y), EDGE, 3.0)
 	draw_line(Vector2(size.x * 0.5, 50), Vector2(size.x * 0.5, floor_y - 20), Color("344653"), 2.0)
-	var actor_scale: float = minf(size.y / 400.0, 1.2)
-	draw_set_transform(Vector2(size.x * 0.25, floor_y - 5), 0.0, Vector2.ONE * actor_scale)
-	_draw_actor(Vector2.ZERO, CYAN.darkened(0.65) if crew_defeated else CYAN)
-	draw_set_transform(Vector2(size.x * 0.75, floor_y - 5), 0.0, Vector2.ONE * actor_scale)
-	_draw_actor(Vector2.ZERO, RUST.darkened(0.65) if enemy_defeated else RUST)
+	var side_width: float = (size.x - 64.0) * 0.5
+	var cell_width: float = side_width / 4.0
+	var actor_scale: float = minf(size.y / 290.0, cell_width / 150.0)
+	for side_index: int in range(2):
+		var ids: Array[StringName] = crew_ids if side_index == 0 else enemy_ids
+		for rank_index: int in range(ids.size()):
+			var column: int = 3 - rank_index if side_index == 0 else rank_index
+			var x: float = (column + 0.5) * cell_width + side_index * (side_width + 64.0)
+			draw_set_transform(Vector2(x, floor_y - 5), 0.0, Vector2.ONE * actor_scale)
+			_draw_actor(Vector2.ZERO, CYAN if side_index == 0 else RUST)
+			if ids[rank_index] == active_id:
+				draw_rect(Rect2(-70, -230, 140, 244), Color("ffd5a8"), false, 3.0)
 
 
 func _draw_actor(feet: Vector2, colour: Color) -> void:

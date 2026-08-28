@@ -1,58 +1,85 @@
-# Milestone 2 combat contract
+# Milestone 3 combat contract
 
-This is the current one-versus-one increment, not the complete demo rules. All game code uses typed GDScript with native Godot features.
+This is the current four-position increment. The two shared prototype attacks are not the four class kits. No status, strain, power, permanent loss, or persistent campaign state is included.
 
 ## Ownership and flow
 
-`Player button / enemy choice → ActionCommand → CombatRules + CombatState + RNG → ordered CombatEvents → screen text and shapes`
+`Player selection / enemy choice → ActionCommand → CombatRules + CombatState + RNG → ordered CombatEvents → text and shapes`
 
-| File/object | Owns or does |
+| Object/file | Responsibility |
 |---|---|
-| `content/actor_definition.gd`, `content/actors/*.tres` | Authored ID, display name, maximum health, and damage range. No current health. |
-| `content/content_catalogue.gd` | Explicit preloads for the two definitions; no directory scanning. |
-| `combat/actor_state.gd` | Unique battle ID, team, reference to a definition, and independent current health. |
-| `combat/combat_state.gd` | Participants, current actor, round number, monotonic turn number, outcome. |
-| `combat/action_command.gd` | Actor/action/targets and expected turn number. Copies the supplied target list. |
-| `combat/combat_event.gd` | Value snapshots needed to display the resolved result. No live actor references. |
-| `combat/combat_rules.gd` | Validation, health changes, random damage, next actor, and terminal outcome. No nodes or presentation dependencies. |
-| `scripts/battle_controller.gd` | Owns this battle and its RNG, accepts player input, selects a legal enemy action, and schedules the enemy's short pause. |
-| `scripts/battle_screen.gd` | Displays events and state, enables/disables buttons, forwards requests. Never rolls damage or changes health. |
+| `content/actor_definition.gd`, `content/actors/*.tres` | Authored ID, display name, maximum health, Speed, and ability references. |
+| `content/ability_definition.gd`, `content/abilities/*.tres` | Authored ability ID, name, usable actor ranks, target ranks, and inclusive damage range. |
+| `content/content_catalogue.gd` | Explicit actor preloads; actors explicitly reference their ability Resources. No directory scanning. |
+| `combat/actor_state.gd` | Battle ID, team, shared definition, independent current health. C1/E1 labels are derived from the ID, not rank. |
+| `combat/combat_state.gd` | Living actors, ordered rank ID lists, round ID queue/cursor, rolled initiative, current actor, round/action counters, outcome. |
+| `combat/action_command.gd` | Actor/action/target IDs and expected turn number; owns a copy of the target array. |
+| `combat/combat_event.gd` | Snapshots for presentation: names/IDs, HP loss, remaining HP, ranks, round, outcome. Names remain available after actor removal. |
+| `combat/combat_rules.gd` | Validation, initiative, damage, swaps, removal, rank compaction, turn advancement, outcomes. No scene dependency. |
+| `scripts/battle_controller.gd` | Owns state/RNG, accepts commands, chooses legal enemy attacks, and coordinates input locks and the enemy Timer. |
+| `scripts/battle_screen.gd` | Shows acting actor/order, rank cards, legal targets and disabled reasons; submits choices; never rolls damage or mutates state. |
+| `scripts/placeholder_stage.gd` | Draws shapes from copied rank ID arrays and the active ID; no rule evaluation. |
 
-Loaded definitions may be shared. Runtime code reads them but never mutates them; each actor instance starts with its own health copied from `max_health`. This is an ownership convention, not a language-enforced immutable type. Tests resolve damage between two actors sharing one definition and check both instance isolation and unchanged content.
+Loaded Resources are shared templates and runtime code never mutates them. Damage now belongs to ability definitions rather than actor definitions. Health, ranks, initiative, and outcomes are runtime data. A no-ability actor definition is allowed because universal Wait must still work. Authored ability rank lists must be nonempty, unique, and between 1 and 4; IDs cannot use the reserved Move/Wait names.
 
-## Public rules interfaces
+## Public interfaces
 
-- `create_battle(crew_definition, enemy_definition) -> CombatState`: creates `crew_1` and `enemy_1` at full health. Invalid definitions return null.
-- `get_legal_actions(state, actor_id) -> Array[ActionCommand]`: read-only query; returns validated Attack and Wait commands for the current conscious actor, otherwise an empty array.
-- `validate_action(state, command) -> String`: empty string means valid; otherwise a readable rejection reason. No mutation.
-- `resolve_action(state, command, rng) -> Array[CombatEvent]`: revalidates before any change; invalid commands or missing RNG return no events and leave state and RNG untouched. Valid commands resolve immediately and return the events in order.
+- `create_battle(crew: Array[ActorDefinition], enemy: Array[ActorDefinition], rng) -> CombatState`: arrays are rank 1 outward, maximum four per side. Creates independent instances and rolls round 1 initiative. Invalid content/missing RNG returns null before any RNG consumption. An empty side produces a terminal result without rolling.
+- `get_legal_actions(state, actor_id) -> Array[ActionCommand]`: read-only, active conscious actor only. Returns each legal attack/target pair, each adjacent swap, and Wait. Terminal state returns none.
+- `ability_reason(state, actor_id, ability_id) -> String`: read-only availability by current rank/occupied targets, even when it is not that actor's turn. This lets a swap's effect be inspected immediately; it does not authorize acting out of turn.
+- `validate_action(state, command) -> String`: empty means valid, otherwise readable reason. No mutation.
+- `resolve_action(state, command, rng) -> Array[CombatEvent]`: validates before any mutation or random roll. Invalid commands or missing RNG produce no events and leave state, definitions, formation, order, and RNG untouched.
 
-These interfaces operate on valid battle states created by the rules. They are not a general validator for arbitrary saved/corrupted state; save validation belongs to milestone 8.
+The interfaces expect internally valid combat state; they do not replace the later save-data validator. A successful action increments `turn_number` once. A command with an old or future expected turn is rejected, including when the same actor becomes active in a later round.
 
-The command's expected turn number must equal the current turn. An accepted action increments it once, so replaying that command is rejected even after the same actor becomes active again. The controller also locks player submissions during resolution and the enemy response. A new input on a later player turn is a new action, not a duplicate.
+## Formation and attacks
 
-## Current rules and order
+Rank 1 is closest to the opposition. Crew renders left to right as 4–3–2–1; enemy as 1–2–3–4. The rank arrays store stable actor IDs, always from rank 1 outward. Rank is derived from array position; there is no second mutable rank field that can disagree.
 
-1. Crew acts first. Each side gets one action, alternating crew → enemy → crew. The round starts at 1 and increments after the enemy action if combat continues.
-2. Attack requires one conscious opposing target and always hits. It rolls one integer in the authored inclusive damage range. Applied damage is the lesser of the roll and remaining health; health stops at zero. No accuracy, dodge, crit, healing, or damage multipliers.
-3. Wait requires no targets. It consumes the turn, changes no health, and consumes no random value.
-4. Attack emits `damage` with actual HP lost and health after the hit. A lethal hit then emits `defeated`. Wait emits `wait`.
-5. Check outcome: no conscious crew means defeat; otherwise no conscious enemy means victory. Defeat takes priority if both sides are absent. At a terminal outcome, clear the active actor and emit `battle_ended`; no further turn is granted. Otherwise select the opponent and emit `turn_started` with the round number.
+| Action | Actor ranks | Target ranks | Crew / enemy damage |
+|---|---|---|---|
+| Close strike (`strike`) | 1, 2 | Opponent 1, 2 | 6–8 / 4–6 |
+| Covering shot (`shot`) | 3, 4 | Opponent 1, 2, 3, 4 | 6–8 / 4–6 |
+| Move (`move`) | Any | Adjacent conscious ally | None |
+| Wait (`wait`) | Any | No target | None |
 
-At zero HP an actor is defeated for this test. It cannot act or be attacked again. Its record remains available to show final health; there is no rank system or corpse mechanic. Downed/revival/permanent death are deferred to milestone 5.
+Attack requires one living opponent in an allowed rank and always hits. Roll one integer from the ability range; applied damage is capped at remaining HP. No accuracy, crit, dodge, healing, or status effects.
 
-The enemy chooses an Attack returned by the same legal-actions query; if unavailable, it chooses a returned Wait. Enemy archetypes and richer behaviour are milestone 4. The controller uses explicit player-input, resolving, enemy-turn, and finished phases. Event display is immediate; animations and a presentation phase are not added yet.
+Move swaps the acting actor's ID with an ally exactly one rank away and consumes the acting actor's action. It does not consume the ally's action, change health, reorder the turn queue, or reroll initiative. Wait consumes the action without changing health. Neither Move nor Wait rolls damage, but either can finish a round and thereby trigger new initiative rolls.
 
-## Randomness and restart
+## Initiative and action resolution
 
-The controller seeds one `RandomNumberGenerator` with 1729 by default. Only the rules consume it, and only accepted Attacks roll. Timing, labels, drawing, and Wait consume no gameplay randomness. Restart stops the pending Timer, creates fresh state, and resets that same seed. Leaving the scene frees the controller and Timer; returning starts fresh, not from a checkpoint.
+At each round start:
 
-Identical initial definitions, seed, commands, and pinned engine produce identical events and results. The tests compare complete transcripts, final state, and RNG state across 64 seeds. Do not promise replay compatibility across engine upgrades: Godot documents that the RNG implementation may change. [Godot RandomNumberGenerator](https://docs.godotengine.org/en/stable/classes/class_randomnumbergenerator.html)
+1. Collect conscious actors and sort IDs lexicographically, ascending.
+2. Roll one inclusive d6 per actor in that canonical ID order. Score is authored Speed + roll.
+3. Sort by score descending, then actor ID ascending on equal scores. Sorting itself never consumes RNG.
+4. Keep this ID queue for the entire round and begin at its first actor.
 
-With the shipped values and seed 1729, three player Attacks win in round 3 (crew 20 HP, enemy 0); six player Waits lose in round 6 (crew 0, enemy 20). Changing content changes these expectations.
+The explicit ID comparison breaks every tie; it does not rely on the sorting implementation preserving equal elements. Formation changes cannot affect draw order. [Godot Array sorting](https://docs.godotengine.org/en/stable/classes/class_array.html)
 
-## Verification and scope
+For each valid action:
 
-Run `tests/run_tests.gd`, not the suite directly. It installs a native `Logger` before dynamically loading the suite and fails on assertions or engine/script errors. Negative self-tests prove both failure paths return exit 1. The error hook protects its counter with a Mutex and never logs inside the hook. [Godot Logger](https://docs.godotengine.org/en/stable/classes/class_logger.html)
+1. Apply damage, swap, or Wait and emit its event (`damage`, `moved`, or `wait`).
+2. On lethal damage, emit `defeated`, remove the target from actors and its rank array, then emit `ranks_compacted` with the new rank IDs. Event names/values remain usable after removal.
+3. Increment the turn counter. Check outcome: no conscious crew → defeat; otherwise no conscious enemies → victory. If both sides are absent, defeat wins. Emit `battle_ended` and clear the active actor for terminal results.
+4. Otherwise advance the queue cursor, skipping removed or non-conscious actors. Do not insert or reorder turns after a swap or removal.
+5. When the queue is exhausted, increment the round and roll the new queue, emitting `round_started`. Finally emit `turn_started`.
 
-See README.md for commands and manual steps; PROGRESS.md records actual results. No ranks, Move, Speed initiative, class skills, statuses, strain, power, roster, rewards, persistence, sound, or animation system are included in this milestone.
+Defeated actors are absent from formation and future initiative. Their stale ID in the current round's snapshot is harmless because advancement skips it. There are no corpses, downed states, or revival yet; milestone 5 adds crew vulnerability.
+
+## Controller, input, and presentation
+
+Phases are player input → resolving → next actor's player input or enemy turn, or finished. An enemy waits 0.4 seconds, chooses the first legal attack from the shared query, and otherwise chooses its legal Wait. There is no additional gameplay randomness in AI. Enemy archetypes/advanced behaviour remain milestone 4.
+
+The UI selects an attack or Move first, then submits the clicked legal target card; Wait submits directly. Skills show visible rank/target reasons. All command buttons lock during resolution/enemy turns and after terminal outcomes. The controller rejects more than one player action in a rendered frame, even when two crew turns are consecutive. A fresh input on a later turn is a new command, not a duplicate.
+
+Events display immediately. The next input phase is deferred until the current submission finishes. Restart stops the enemy Timer, increments a generation token to invalidate deferred callbacks, creates new actors, and resets the seed. Leaving the scene frees its controller/Timer. Presentation does not need an animation or sound callback to complete.
+
+## Determinism and verification
+
+Only rules consume the controller's `RandomNumberGenerator`: initiative at round boundaries and damage on valid attacks. Timing, drawing, selection, and rejected input consume none. Same definitions, seed, commands (including target IDs/Move/Wait), and pinned engine reproduce events and results. Cross-engine-version replay compatibility is not promised. [Godot RandomNumberGenerator](https://docs.godotengine.org/en/stable/classes/class_randomnumbergenerator.html)
+
+Default seed 1729 opens with C3, C1, C2, E1, C4, E4, E2, E3. Always using the available attack against enemy rank 1 wins in round 4 (C1 2 HP, others 30). Waiting on every crew turn loses in round 7. These are reproducible test cases, not final balancing.
+
+Run `tests/run_tests.gd` for rules; its native Logger catches script errors as well as assertions. The suite compares 64-seed replays, verifies formation/initiative invariants, and exercises stranded actors. `tests/setup_smoke.gd` checks actual buttons, layouts, restart races, and complete battles. README.md has playtest steps; PROGRESS.md records actual commands/results and untested work.

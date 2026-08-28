@@ -1,11 +1,14 @@
-[gd_resource type="Resource" script_class="ActorDefinition" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ActorDefinition" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://content/actor_definition.gd" id="1"]
+[ext_resource type="Script" path="res://content/ability_definition.gd" id="2"]
+[ext_resource type="Resource" path="res://content/abilities/enemy_strike.tres" id="3"]
+[ext_resource type="Resource" path="res://content/abilities/enemy_shot.tres" id="4"]
 
 [resource]
 script = ExtResource("1")
 id = &"test_sentry"
 display_name = "Faulted Sentry"
 max_health = 20
-damage_min = 4
-damage_max = 6
+speed = 3
+abilities = Array[ExtResource("2")]([ExtResource("3"), ExtResource("4")])

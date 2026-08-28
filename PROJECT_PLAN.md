@@ -2,7 +2,7 @@
 
 ## Specification and scope
 
-The user supplied the full plan on 2026-08-27 and then authorized milestone 1. On 2026-08-28 the user reported "all is working" and requested milestone 2. Operational requirements are recorded in [SPECIFICATION.md](SPECIFICATION.md); the original user-supplied plan remains authoritative. Embedded example prompts are not authorization to start every milestone. Milestones 3–13 have not been requested.
+The user supplied the full plan on 2026-08-27 and then authorized milestone 1. On 2026-08-28 the user reported "all is working" and requested milestone 2. Operational requirements are recorded in [SPECIFICATION.md](SPECIFICATION.md); the original user-supplied plan remains authoritative. Embedded example prompts are not authorization to start every milestone. Milestone 3 was requested on 2026-08-28 after the GitHub upload. Milestones 4–13 have not been requested.
 
 ## Required approach
 
@@ -28,9 +28,9 @@ The user supplied the full plan on 2026-08-27 and then authorized milestone 1. O
 
 Repository: [ConsumedMedia/Hollow-Signal](https://github.com/ConsumedMedia/Hollow-Signal), connected and initially pushed on 2026-08-28. Local `main` tracks `origin/main`; preserve milestone history and exclude local engine/cache/artifact files from commits.
 
-1. User performs the milestone 2 acceptance playtest in README.md: victory, defeat, restart/replay, repeated input, and layout at both target sizes.
+1. User performs the milestone 3 acceptance playtest in README.md: rank targeting, Move, initiative, removal/compaction, victory/defeat, and both target sizes.
 2. Fix any reported battle issue before proceeding.
-3. Begin milestone 3 (four-position combat) only when explicitly requested.
+3. Begin milestone 4 (crew classes and enemy behaviour) only when explicitly requested.
 
 ## Milestone 1 — Project setup
 
@@ -44,7 +44,7 @@ Delivered: Godot 4.7.2 Standard portable editor in ignored `.tools/`; three nati
 
 ## Milestone 2 — One functioning battle
 
-Status: implemented; import, 51 rules checks, 82 headless integration checks, and 123 rendered integration checks passed. Intentional assertion and script-error tests both exit unsuccessfully. User acceptance playtest pending.
+Status: implementation and verification complete; import, 51 rules checks, 82 headless integration checks, and 123 rendered integration checks passed at its checkpoint. User authorized proceeding to milestone 3; individual milestone 2 manual checks were not separately reported.
 
 Minimal one-versus-one battle: actor definitions and separate instances, health, seeded randomness, Attack and Wait, legal-action validation, turns, victory/defeat. Rules independent of scene, emitting presentation events. Add a native GDScript test runner with unsuccessful exit on test failure.
 
@@ -54,11 +54,13 @@ Delivered: two editable actor Resources and an explicit catalogue; separate runt
 
 ## Milestone 3 — Four-position combat
 
-Status: not started.
+Status: implemented and verified locally; import, 78 rules checks, 107 headless integration checks, and 166 rendered checks passed. Intentional assertion/script-error runs both exit 1. User acceptance playtest pending.
 
 Four positions per side, actor/target rank requirements, Speed plus seeded 1–6 initiative, stable actor-ID tie-breaking, one action per actor per round. Adjacent Move consumes an action; Wait remains available; compact ranks after removal. Show active actor, rank numbers, legal targets, and disabled-skill reasons.
 
 Acceptance: movement immediately changes legality; dead actors never act; moving never grants another turn; awkward formations cannot softlock combat.
+
+Delivered: four actors per side, two generic rank-limited attack Resources per side, authored Speed, canonical seeded d6 initiative with ID ties, formation arrays independent of the round queue, adjacent Move, universal Wait, immediate removal/compaction, and target cards with visible disabled reasons. Extended existing native tests rather than adding a framework. Original shape presentation retained. No classes, statuses, power, or future systems added. This milestone's checkpoint is local; uploading further commits was not requested.
 
 ## Milestone 4 — Crew classes and enemy behaviour
 
