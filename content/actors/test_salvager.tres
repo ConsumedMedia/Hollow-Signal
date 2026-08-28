@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ActorDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://content/actor_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"test_salvager"
+display_name = "Salvager"
+max_health = 30
+damage_min = 6
+damage_max = 8

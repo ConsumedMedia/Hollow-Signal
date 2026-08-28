@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://scripts/screen_navigation.gd" id="1_nav"]
+[ext_resource type="Script" path="res://scripts/battle_screen.gd" id="1_nav"]
 [ext_resource type="Theme" path="res://ui/prototype_theme.tres" id="2_theme"]
 [ext_resource type="Script" path="res://scripts/placeholder_stage.gd" id="3_stage"]
+[ext_resource type="Script" path="res://scripts/battle_controller.gd" id="4_controller"]
 
 [node name="BattleTest" type="Control"]
 layout_mode = 3
@@ -13,8 +14,15 @@ grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("2_theme")
 script = ExtResource("1_nav")
-initial_focus = NodePath("Margin/Layout/Navigation/BackToHub")
+initial_focus = NodePath("Margin/Layout/Actions/Attack")
 back_scene = "res://scenes/hub.tscn"
+
+[node name="BattleController" type="Node" parent="."]
+script = ExtResource("4_controller")
+
+[node name="EnemyDelay" type="Timer" parent="BattleController"]
+wait_time = 0.4
+one_shot = true
 
 [node name="Background" type="ColorRect" parent="."]
 layout_mode = 1
@@ -32,44 +40,47 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/margin_left = 96
-theme_override_constants/margin_top = 56
+theme_override_constants/margin_top = 40
 theme_override_constants/margin_right = 96
-theme_override_constants/margin_bottom = 48
+theme_override_constants/margin_bottom = 32
 
 [node name="Layout" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
-theme_override_constants/separation = 24
+theme_override_constants/separation = 16
 
 [node name="Header" type="Label" parent="Margin/Layout"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.47, 0.84, 0.85, 1)
 theme_override_font_sizes/font_size = 24
-text = "HOLLOW SIGNAL   /   BATTLE TEST"
+text = "HOLLOW SIGNAL   /   ONE-VERSUS-ONE BATTLE TEST"
 
-[node name="Title" type="Label" parent="Margin/Layout"]
+[node name="TurnLabel" type="Label" parent="Margin/Layout"]
+unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 56
-text = "Combat stage — placeholder"
+theme_override_font_sizes/font_size = 40
+text = "Round 1 / Your turn"
 
 [node name="Sides" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
 
 [node name="CrewLabel" type="Label" parent="Margin/Layout/Sides"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.47, 0.84, 0.85, 1)
-text = "CREW / STAND-IN"
+text = "CREW / Salvager\nHP —"
 horizontal_alignment = 1
 
 [node name="EnemyLabel" type="Label" parent="Margin/Layout/Sides"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.86, 0.56, 0.41, 1)
-text = "ENEMY / STAND-IN"
+text = "ENEMY / Faulted Sentry\nHP —"
 horizontal_alignment = 1
 
 [node name="Stage" type="Control" parent="Margin/Layout"]
-custom_minimum_size = Vector2(0, 400)
+custom_minimum_size = Vector2(0, 280)
 layout_mode = 2
 size_flags_vertical = 3
 mouse_filter = 2
@@ -80,9 +91,34 @@ display = 1
 layout_mode = 2
 
 [node name="Status" type="Label" parent="Margin/Layout/StatusPanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
-text = "Battle test is ready. No attacks, turns, health or damage yet.\nMilestone 2 will add the first playable one-versus-one battle."
+theme_override_font_sizes/font_size = 24
+text = "Battle events appear here."
 autowrap_mode = 2
+
+[node name="Actions" type="HBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="Attack" type="Button" parent="Margin/Layout/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Attack Sentry"
+
+[node name="Wait" type="Button" parent="Margin/Layout/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Wait"
+
+[node name="Restart" type="Button" parent="Margin/Layout/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Restart same seed"
 
 [node name="Navigation" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
@@ -106,5 +142,9 @@ theme_override_colors/font_color = Color(0.65, 0.73, 0.77, 1)
 theme_override_font_sizes/font_size = 24
 text = "ESC hub   /   TAB or ARROWS to focus   /   ENTER to confirm   /   F11 fullscreen"
 
+[connection signal="timeout" from="BattleController/EnemyDelay" to="BattleController" method="_on_enemy_delay_timeout"]
+[connection signal="pressed" from="Margin/Layout/Actions/Attack" to="." method="_on_attack_pressed"]
+[connection signal="pressed" from="Margin/Layout/Actions/Wait" to="." method="_on_wait_pressed"]
+[connection signal="pressed" from="Margin/Layout/Actions/Restart" to="." method="restart_battle"]
 [connection signal="pressed" from="Margin/Layout/Navigation/BackToHub" to="." method="open_screen" binds= ["res://scenes/hub.tscn"]]
 [connection signal="pressed" from="Margin/Layout/Navigation/MainMenu" to="." method="open_screen" binds= ["res://scenes/main_menu.tscn"]]

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ActorDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://content/actor_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"test_sentry"
+display_name = "Faulted Sentry"
+max_health = 20
+damage_min = 4
+damage_max = 6

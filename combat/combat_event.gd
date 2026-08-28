@@ -1,0 +1,18 @@
+class_name CombatEvent
+extends RefCounted
+## Value snapshots for presentation; never a reference to changing actor state.
+
+var kind: StringName
+var source_id: StringName
+var target_id: StringName
+var amount: int
+var health_after: int = 0
+var round_number: int = 0
+var outcome: StringName = &""
+
+
+func _init(event_kind: StringName, source: StringName = &"", target: StringName = &"", value: int = 0) -> void:
+	kind = event_kind
+	source_id = source
+	target_id = target
+	amount = value

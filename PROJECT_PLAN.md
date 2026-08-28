@@ -2,7 +2,7 @@
 
 ## Specification and scope
 
-The user supplied the full plan on 2026-08-27 and then authorized milestone 1. Its operational requirements are recorded in [SPECIFICATION.md](SPECIFICATION.md); the original user-supplied plan remains authoritative. Embedded example prompts are not authorization to start every milestone. Milestones 2–13 have not been requested.
+The user supplied the full plan on 2026-08-27 and then authorized milestone 1. On 2026-08-28 the user reported "all is working" and requested milestone 2. Operational requirements are recorded in [SPECIFICATION.md](SPECIFICATION.md); the original user-supplied plan remains authoritative. Embedded example prompts are not authorization to start every milestone. Milestones 3–13 have not been requested.
 
 ## Required approach
 
@@ -26,13 +26,13 @@ The user supplied the full plan on 2026-08-27 and then authorized milestone 1. I
 
 ## Current next steps
 
-1. User performs the milestone 1 acceptance playtest in README.md, especially physical input and F6 in the editor.
-2. Fix any reported setup issue before proceeding.
-3. Begin milestone 2 (one functioning battle) only when explicitly requested.
+1. User performs the milestone 2 acceptance playtest in README.md: victory, defeat, restart/replay, repeated input, and layout at both target sizes.
+2. Fix any reported battle issue before proceeding.
+3. Begin milestone 3 (four-position combat) only when explicitly requested.
 
 ## Milestone 1 — Project setup
 
-Status: implemented; import, native automated checks, and rendered screenshot review passed. User acceptance playtest pending. See PROGRESS.md for evidence and limitations.
+Status: complete; import, native automated checks, and rendered screenshot review passed. User reported "all is working" on 2026-08-28. The report did not enumerate individual manual checks. See PROGRESS.md for evidence and limitations.
 
 Locate Godot or guide obtaining the pinned version. Create project, input actions, scalable window configuration, main menu, placeholder hub, and battle test scene. Set up Git if needed, ignore rules, and run instructions without overwriting history. Use only shapes and labels. Explain scenes, nodes, scripts, and signals through this project.
 
@@ -42,11 +42,13 @@ Delivered: Godot 4.7.2 Standard portable editor in ignored `.tools/`; three nati
 
 ## Milestone 2 — One functioning battle
 
-Status: not started.
+Status: implemented; import, 51 rules checks, 82 headless integration checks, and 123 rendered integration checks passed. Intentional assertion and script-error tests both exit unsuccessfully. User acceptance playtest pending.
 
 Minimal one-versus-one battle: actor definitions and separate instances, health, seeded randomness, Attack and Wait, legal-action validation, turns, victory/defeat. Rules independent of scene, emitting presentation events. Add a native GDScript test runner with unsuccessful exit on test failure.
 
 Acceptance: battle can be won or lost; invalid commands do not mutate state; same seed and commands reproduce outcomes; two instances of one definition do not share health.
+
+Delivered: two editable actor Resources and an explicit catalogue; separate runtime actors, combat state, commands, and events; rules without scene dependencies; Attack/Wait, seeded damage, fixed crew/enemy turns, terminal victory/defeat; a controller and immediate event presentation with health, action locks, and same-seed restart. Native tests include 64-seed replay comparisons, shared-definition isolation, invalid/stale commands, repeated input, and cancelling pending enemy actions. Fixed turn order is temporary for M2; initiative/ranks remain M3, and downed/permanent-death rules remain M5.
 
 ## Milestone 3 — Four-position combat
 

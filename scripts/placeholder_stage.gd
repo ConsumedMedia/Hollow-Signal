@@ -1,3 +1,4 @@
+class_name PlaceholderStage
 extends Control
 ## Original geometric stand-ins. This script draws; it never resolves combat.
 
@@ -7,6 +8,10 @@ const HULL: Color = Color("203343")
 const EDGE: Color = Color("4d6674")
 const CYAN: Color = Color("77d5d9")
 const RUST: Color = Color("dc9069")
+
+# Presentation flags only, supplied by the battle screen from resolved state.
+var crew_defeated: bool = false
+var enemy_defeated: bool = false
 
 
 func _ready() -> void:
@@ -55,9 +60,9 @@ func _draw_battle() -> void:
 	draw_line(Vector2(size.x * 0.5, 50), Vector2(size.x * 0.5, floor_y - 20), Color("344653"), 2.0)
 	var actor_scale: float = minf(size.y / 400.0, 1.2)
 	draw_set_transform(Vector2(size.x * 0.25, floor_y - 5), 0.0, Vector2.ONE * actor_scale)
-	_draw_actor(Vector2.ZERO, CYAN)
+	_draw_actor(Vector2.ZERO, CYAN.darkened(0.65) if crew_defeated else CYAN)
 	draw_set_transform(Vector2(size.x * 0.75, floor_y - 5), 0.0, Vector2.ONE * actor_scale)
-	_draw_actor(Vector2.ZERO, RUST)
+	_draw_actor(Vector2.ZERO, RUST.darkened(0.65) if enemy_defeated else RUST)
 
 
 func _draw_actor(feet: Vector2, colour: Color) -> void:

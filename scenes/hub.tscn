@@ -100,11 +100,11 @@ alignment = 1
 [node name="Title" type="Label" parent="Margin/Layout/Body/SetupPanel/Info"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
-text = "The foundation is in place"
+text = "First contact is ready"
 
 [node name="Description" type="Label" parent="Margin/Layout/Body/SetupPanel/Info"]
 layout_mode = 2
-text = "You reached the hub from New Game.\n\nOpen the battle test to check the stage and navigation."
+text = "The hub is still a placeholder.\n\nOpen the battle test to fight a Faulted Sentry using Attack and Wait."
 autowrap_mode = 2
 
 [node name="Rule" type="HSeparator" parent="Margin/Layout/Body/SetupPanel/Info"]
