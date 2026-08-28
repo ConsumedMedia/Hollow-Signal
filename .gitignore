@@ -1,0 +1,17 @@
+# Godot-generated cache; keep authored .uid files in Git.
+.godot/
+
+# Local engine, verification logs/screenshots, and future export output.
+.tools/*
+!.tools/.gdignore
+.artifacts/*
+!.artifacts/.gdignore
+builds/
+exports/
+export_credentials.cfg
+
+# Editor/OS temporary files.
+*.tmp
+*~
+.DS_Store
+Thumbs.db

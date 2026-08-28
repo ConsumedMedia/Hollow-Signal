@@ -1,0 +1,110 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/screen_navigation.gd" id="1_nav"]
+[ext_resource type="Theme" path="res://ui/prototype_theme.tres" id="2_theme"]
+[ext_resource type="Script" path="res://scripts/placeholder_stage.gd" id="3_stage"]
+
+[node name="BattleTest" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_nav")
+initial_focus = NodePath("Margin/Layout/Navigation/BackToHub")
+back_scene = "res://scenes/hub.tscn"
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.035, 0.051, 0.075, 1)
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 96
+theme_override_constants/margin_top = 56
+theme_override_constants/margin_right = 96
+theme_override_constants/margin_bottom = 48
+
+[node name="Layout" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="Header" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.47, 0.84, 0.85, 1)
+theme_override_font_sizes/font_size = 24
+text = "HOLLOW SIGNAL   /   BATTLE TEST"
+
+[node name="Title" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 56
+text = "Combat stage — placeholder"
+
+[node name="Sides" type="HBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+
+[node name="CrewLabel" type="Label" parent="Margin/Layout/Sides"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.47, 0.84, 0.85, 1)
+text = "CREW / STAND-IN"
+horizontal_alignment = 1
+
+[node name="EnemyLabel" type="Label" parent="Margin/Layout/Sides"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.86, 0.56, 0.41, 1)
+text = "ENEMY / STAND-IN"
+horizontal_alignment = 1
+
+[node name="Stage" type="Control" parent="Margin/Layout"]
+custom_minimum_size = Vector2(0, 400)
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+script = ExtResource("3_stage")
+display = 1
+
+[node name="StatusPanel" type="PanelContainer" parent="Margin/Layout"]
+layout_mode = 2
+
+[node name="Status" type="Label" parent="Margin/Layout/StatusPanel"]
+layout_mode = 2
+text = "Battle test is ready. No attacks, turns, health or damage yet.\nMilestone 2 will add the first playable one-versus-one battle."
+autowrap_mode = 2
+
+[node name="Navigation" type="HBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="BackToHub" type="Button" parent="Margin/Layout/Navigation"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Back to Hub"
+
+[node name="MainMenu" type="Button" parent="Margin/Layout/Navigation"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Main Menu"
+
+[node name="Footer" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.73, 0.77, 1)
+theme_override_font_sizes/font_size = 24
+text = "ESC hub   /   TAB or ARROWS to focus   /   ENTER to confirm   /   F11 fullscreen"
+
+[connection signal="pressed" from="Margin/Layout/Navigation/BackToHub" to="." method="open_screen" binds= ["res://scenes/hub.tscn"]]
+[connection signal="pressed" from="Margin/Layout/Navigation/MainMenu" to="." method="open_screen" binds= ["res://scenes/main_menu.tscn"]]
