@@ -93,6 +93,8 @@ git diff --cached --stat
 
 Results: exit 0; three generated paths correctly ignored; 19 source/document/marker files staged; no whitespace errors. `rg -n 'ERROR|WARNING|SCRIPT ERROR|FAIL:'` across the final import, headless smoke, rendered smoke, and three startup logs found no matches (rg exit 1 means no matches). The intentional negative-test log was correctly excluded from that clean-log check.
 
+Created local implementation checkpoint **878c298 — Set up Hollow Signal milestone 1** with `git commit -m 'Set up Hollow Signal milestone 1'`. `git log -1 --format='%h %s'` confirmed it; `git status --short` was empty. A following documentation-only commit records this checkpoint. User acceptance playtesting is still pending; the checkpoint does not claim those checks passed.
+
 ## Historical intake checks (before implementation)
 
 Commands ran in PowerShell from `C:\Users\CRS-Workstation\Game Dev`.
