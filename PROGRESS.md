@@ -2,7 +2,7 @@
 
 ## Status — 2026-08-28
 
-Milestone 4 is implemented after the user authorized the next milestone following the Close strike diagnostic. The battle now has Breacher, Technician, Ranger and Medic skills, five enemy archetypes across two patrols, healing/use limits, battle-local strain, protection, Exposed, Scorch and forced movement. Final import, native rules/integration/rendering checks passed. User acceptance of milestone 4 is pending.
+Milestone 4 is implemented after the user authorized the next milestone following the Close strike diagnostic. The battle now has Breacher, Technician, Ranger and Medic skills, five enemy archetypes across two patrols, healing/use limits, battle-local strain, protection, Exposed, Scorch and forced movement. Final import, native rules/integration/rendering checks passed. On 2026-08-28 the user reported that everything seemed to work: general playtest acceptance, without enumerating individual manual checks.
 
 Milestone 4 began at local commit `73c4eee`, with four uncommitted files from the earlier diagnostic (README, plan, progress and the smoke test). Preserved that work, history, navigation, original shapes, engine, native test runner and authored/runtime separation. No dependencies or assets were installed. Godot remains **4.7.2 Standard / Compatibility**, project version `0.4.0-milestone-4`. No milestone 5 or later systems were started.
 
@@ -11,7 +11,7 @@ Milestone 4 began at local commit `73c4eee`, with four uncommitted files from th
 - Milestone 1: complete; user reported success on 2026-08-28. This is general user acceptance, not a claim that every individual manual step was reported separately.
 - Milestone 2: implementation and automated/rendered verification complete; user authorized moving to milestone 3, without separately reporting every manual check.
 - Milestone 3: implementation and automated/rendered verification complete; user authorized proceeding to milestone 4 after the diagnostic. The earlier reported symptom was not reproduced or confirmed fixed.
-- Milestone 4: implementation and automated/rendered verification complete; user playtest pending.
+- Milestone 4: implementation and automated/rendered verification complete; user reported general playtest success on 2026-08-28.
 - Milestones 5–13: not started or authorized.
 
 ## Milestone 4 — Actual verification
@@ -417,7 +417,7 @@ Result: exit code 0; 13 milestone headings and 13 not-started statuses; exactly 
 ## Known issues and untested work
 
 - Earlier user-reported Close strike issue was not reproduced. The user authorized proceeding; retained GUI regressions pass, but no confirmed fix to the physical observation is claimed.
-- Milestone 4 physical keyboard/mouse input, editor F5/F6/F8 workflow, display/DPI readability and tactical balance still need the user's README.md playtest. Automated GUI input and native screenshots are not a substitute for that.
+- Milestone 4 received general user playtest acceptance. Individual physical keyboard/mouse, editor F5/F6/F8, display/DPI readability and tactical balance checks were not separately reported; automated GUI input and native screenshots do not establish those results.
 - Only this machine's NVIDIA Compatibility renderer was exercised. No Windows export or other hardware testing; exports remain milestone 13.
 - The first M4 import exited 1 without a printed project error; the final import passed. The same intermittent behavior occurred during earlier milestones. Cause remains unconfirmed; keep the log if it recurs.
 - No downed/permanent death, persistent strain/Shaken, power, campaign, saving, audio, or later systems are implemented or tested. Zero HP currently removes the actor from this battle only. M4 strain resets on restart/switch; it is not campaign state.
@@ -426,6 +426,6 @@ Result: exit code 0; 13 milestone headings and 13 not-started statuses; exactly 
 
 ## Next steps
 
-1. Use the pinned Godot 4.7.2 editor and follow README.md's exact M4 opening: Ranger shoots E4, Technician beams E1, Breacher protects Medic, Medic heals Ranger.
-2. Check remaining class skills, status timing, limited healing, both patrols, outcomes, restart and both target resolutions. Send errors or screenshots with the actor/class/rank line if anything differs.
+1. General milestone 4 playtest success is recorded. Keep README.md's detailed checks available for regression testing and any steps not yet tried.
+2. Report any further issues with reproduction steps and the actor/class/rank line. No gameplay changes were made in response to the roadmap question.
 3. Start milestone 5 only when explicitly requested: downed/death, persistent strain, Shaken, shared power and Overcharge. Preserve the effect/rules architecture and editable data.

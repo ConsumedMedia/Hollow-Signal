@@ -28,7 +28,7 @@ The user supplied the full plan on 2026-08-27 and then authorized milestone 1. O
 
 Repository: [ConsumedMedia/Hollow-Signal](https://github.com/ConsumedMedia/Hollow-Signal), connected and initially pushed on 2026-08-28. Local `main` tracks `origin/main`; preserve milestone history and exclude local engine/cache/artifact files from commits.
 
-1. User performs README.md's milestone 4 opening and remaining ability/status checks in Godot 4.7.2 at both target sizes.
+1. Milestone 4 received general user playtest acceptance on 2026-08-28; individual README.md checks were not separately reported. Retain those checks for regression testing.
 2. Fix reported problems before proceeding. The earlier Close strike observation was not reproduced; its tests remain, and the user authorized continuing without supplying a screenshot. Do not claim a confirmed fix for that report.
 3. Begin milestone 5 (crew vulnerability and shared power) only when explicitly requested.
 
@@ -64,7 +64,7 @@ Delivered: four actors per side, two generic rank-limited attack Resources per s
 
 ## Milestone 4 — Crew classes and enemy behaviour
 
-Status: implemented and verified locally; final import and standalone battle start passed, with 149 rules checks, 360 headless integration checks and 539 rendered integration checks. Both intentional failure modes exit 1. User acceptance playtest pending; exact evidence and limitations are in PROGRESS.md.
+Status: complete with general user playtest acceptance on 2026-08-28; final import and standalone battle start passed, with 149 rules checks, 360 headless integration checks and 539 rendered integration checks. Both intentional failure modes exit 1. Individual manual checks were not separately reported; exact evidence and limitations are in PROGRESS.md.
 
 Four classes and twelve specified class abilities. Minimal shared effects for damage, healing, strain reduction, protection, expose, forced movement, and one damage-over-time status. Editable ability Resources. Document status duration, stacking, rounding, and resolution order. Five enemy archetypes, using the same legality checks as players.
 
