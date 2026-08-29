@@ -2,7 +2,7 @@
 
 ## Specification and scope
 
-The user supplied the full plan on 2026-08-27 and subsequently authorized milestones 1–5. Milestone 4 received general playtest acceptance. Completed work through f6ad903 was uploaded before milestone 5. While final M5 checks were blocked by the approval service, the user explicitly requested milestone 6. Operational requirements are in SPECIFICATION.md; the supplied plan remains authoritative. Milestones 7–13 have not been requested.
+The user supplied the full plan on 2026-08-27 and subsequently authorized milestones 1–7. Milestone 6 received general playtest acceptance and its checkpoint was uploaded. Milestone 7 was requested on 2026-08-29. Operational requirements are in SPECIFICATION.md; the supplied plan remains authoritative. Milestones 8–13 have not been requested.
 
 ## Required approach
 
@@ -30,7 +30,7 @@ Repository: [ConsumedMedia/Hollow-Signal](https://github.com/ConsumedMedia/Hollo
 
 1. Milestone 4 received general user playtest acceptance on 2026-08-28; individual README.md checks were not separately reported. Retain those checks for regression testing.
 2. Fix reported problems before proceeding. The earlier Close strike observation was not reproduced; its tests remain, and the user authorized continuing without supplying a screenshot. Do not claim a confirmed fix for that report.
-3. M6 and the reported room Resource fix pass import, rules and scene checks. The user reported general success on 2026-08-28; M5/M6 checkpoint `b5074db` was uploaded and verified on GitHub. Retain manual regressions and await explicit milestone 7 authorization.
+3. Milestone 7 is implemented and automatically verified. Obtain the user's acceptance playtest and fix reports before a checkpoint or milestone 8. Disk save remains out of scope.
 
 ## Milestone 1 — Project setup
 
@@ -92,11 +92,13 @@ Delivered: explicit ship/room/item Resources; separate room/inventory runtime re
 
 ## Milestone 7 — Persistent hub and complete game loop
 
-Status: not started.
+Status: implemented locally and automatically verified on 2026-08-29. Import, 314 rules, 527 headless scene and 754 rendered scene checks pass. Both intentional runner failures exit 1. Hub screenshots were reviewed at 1280×720 and 1920×1080. Physical user acceptance and Git checkpoint are pending.
 
 Eight starting crew, party selection and ordering, recruitment, recovery, supplies, six modules, one upgrade tier. Success, guaranteed retreat with half-salvage loss, and expedition defeat. Permanent deaths and persistent strain; free basic recruitment and full-health restoration safeguards.
 
 Acceptance: prepare → deploy → complete/abandon → return → recover → change party → redeploy; rewards once; dead crew never reappear; campaign playable after party loss.
+
+Delivered: one in-memory campaign service; eight individual starting crew with two per class; four-member selection and rank ordering; free class recruitment and health restoration; paid strain care and power-cell supplies; six authored one-owner modules; one upgrade tier; full-reward extraction, half-reward guaranteed retreat and zero-reward defeat; permanent roster deaths; repeated deployment. Mutable campaign/crew state remains separate from Resources, and combat resolves equipment modifiers. Versioned disk persistence remains milestone 8.
 
 ## Milestone 8 — Save and load
 

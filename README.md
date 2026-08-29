@@ -1,8 +1,8 @@
 # Hollow Signal
 
-Milestone 6 is implemented: an authored eight-room ship, short corridor transitions, once-only room events, a twelve-slot inventory, power cells and embedded battles sharing expedition state. **Godot import, 287 rules checks, 517 headless scene checks and 744 rendered scene checks pass after the room Resource fix.** The user reported general playtest success; individual manual checks were not separately reported. Exact commands, results and limitations are in PROGRESS.md.
+Milestone 7 is implemented locally: an eight-person persistent roster, party preparation, supplies, six modules, recovery, one upgrade tier, expedition success/retreat/defeat and repeat deployment. **Godot import, 314 rules checks, 527 headless scene checks and 754 rendered scene checks pass.** Exact commands, results and limitations are in PROGRESS.md.
 
-New Game opens the placeholder hub; **Explore Ship** starts a fresh in-memory expedition. The separate **Battle Test** remains available. No persistent roster, campaign rewards, retreat mechanic or disk saving yet. Ending a test or closing the app abandons its state; hub persistence and saves arrive in milestones 7–8.
+**New Game** creates the campaign and opens the salvage hub. **Deploy selected party** starts the authored expedition; the separate **Battle Test** remains available. Campaign state persists across scene changes, but closing the app loses it. Versioned disk saving arrives in milestone 8.
 
 ## Open the project in Godot
 
@@ -47,7 +47,24 @@ Orange outlines show keyboard focus. The first useful button is focused on every
 
 The Input Map defines `ui_accept`, `ui_cancel`, and `toggle_fullscreen`. Tab and arrow navigation use Godot's native UI actions. Select an attack or Move, then click a labelled TARGET or SWAP card. Wait immediately spends the current actor's action. There are no extra combat hotkeys yet.
 
-## Exact milestone 6 playtest
+## Exact milestone 7 playtest
+
+Use the pinned **Godot 4.7.2 Standard** editor. Press F8 to stop an old run, wait for the filesystem scan, then press F5.
+
+1. Click **New Game**. Expected: the hub lists Vela, Kite, Rook, Morrow, Sable, Patch, Orison and Vale—two of each class. The first four show RANK 1–4; salvage is 20 and supply cells are 2.
+2. Select a crew card. Click **Rank back** or **Rank forward**. Expected: adjacent rank numbers swap. Remove that crew from the party: deployment disables at 3/4. Select an unassigned living crew and add them; deployment enables at 4/4.
+3. Select a crew and **Collect** Reinforced Plating for 10 salvage, then **Equip selected**. Expected: that crew shows the module and a higher maximum HP. Equipping the same module to another crew moves it; it never appears on both. Use the dropdown to read all six distinct effects.
+4. You begin with insufficient salvage for the 30-salvage upgrade. Buying a power cell costs 5 and adds one supply cell. All stored cells move into the next expedition and the hub count returns to zero; they do not duplicate on later deployments.
+5. Click **Deploy selected party**. In the Airlock, confirm the four chosen names/classes are represented in the selected rank order and the purchased supplies are in cargo. Travel to Receiving and engage.
+6. During a conscious crew turn, click **Retreat / lose half salvage**. Expected: no failure roll; combat becomes terminal. Click Return to room if prompted, then return to the hub. Wounds, strain, Shaken state and deaths remain; the report lists half the carried scrap/data, rounded down. The same expedition cannot pay again.
+7. Restore an injured survivor to full health for **FREE**. Treat strained crew for 5 salvage per 30 strain. Shaken remains at 50 and clears below 50. Change the party/ranks, buy supplies if affordable and deploy again.
+8. On another run, reach and defeat the Signal core placeholder, then click **Extract success**. Expected: the hub returns all carried scrap and data once. At 30 salvage, buy the one-tier +2 maximum-health upgrade; it cannot be bought twice and applies to future recruits.
+9. In a fresh run, Wait until the deployed party is defeated. Expected: all four remain visible as DEAD and cannot be selected. Recruit four basic crew for free, add them to the party, restore health for free if needed, and deploy again. Dead crew never become selectable.
+10. Repeat the hub at 1280×720 and 1920×1080. Check that roster cards, management controls, module descriptions, footer and focus outline remain visible. Close and reopen the application only to confirm the current limitation: milestone 7 does **not** restore the campaign from disk.
+
+If any step differs, send the current screen, selected crew, party count, salvage/cell totals and exact Godot error. Do not proceed to milestone 8 until the return loop works for you.
+
+## Historical milestone 6 exploration playtest
 
 Use **Godot 4.7.2 Standard**. Import and automated checks now pass; the following physical playtest remains yours to verify. For the reported Resource error, stop the old game with F8, wait for the editor's filesystem rescan and clear old Output/Debugger messages before F5. Stop on any new error and send its exact message.
 
@@ -58,9 +75,9 @@ Use **Godot 4.7.2 Standard**. Import and automated checks now pass; the followin
 5. In any room outside combat, click the **Power cell** stack, then **Use selected power cell**. Expected: restore **25**, capped at 100, consume one cell. At full power it is disabled. Cells cannot be used during a corridor or a fight.
 6. Clear **Junction**, then take the optional **Salvage bay** branch. Click **Collect cache**. Expected: the hold fills to twelve slots and HOLD FULL lists the remaining cargo; nothing silently vanishes, and travel locks. Select a stored stack → **Discard selected stack…**, review the quantity and confirm to free space for incoming cargo. Alternatively **Leave incoming cargo…** explicitly discards the pending quantity. Cancel must change nothing. Resolve all pending cargo before travelling.
 7. Continue to **Pressure breach**. **Search / +12 strain** gives its cargo once and adds 12 strain to every surviving crew member. **Seal / no loot** instead resolves it without strain or loot. Revisit: neither option may regenerate the event. A separate fresh expedition is needed to try the other choice.
-8. Backtrack to **Junction → Safe room**. **Rest once** restores **12 HP** and reduces **30 strain**, with normal caps; it never revives dead crew. Repeated visits give no second rest. Continue through **Containment → Signal core**, winning each encounter. Expected: the single Relay Bulwark boss placeholder can be cleared and the summary says **BOSS PLACEHOLDER CLEARED**. No final narrative/reward campaign is implemented yet.
-9. In a separate fresh expedition, Wait through a fight to lose. Expected: all deployed crew are lost; returning displays EXPEDITION FAILED and further travel/items are disabled. **End test / abandon to hub** is an explicit test reset path, not the milestone 7 retreat/reward system.
-10. Repeat at **1280×720** and **1920×1080**. Check room links, room choices, all twelve inventory slots, overflow text, confirmation dialog, battle Return to room, and keyboard focus. **ESC** abandons only when outside battle/corridor/overflow; **F11** remains fullscreen. No campaign data is saved.
+8. Backtrack to **Junction → Safe room**. **Rest once** restores **12 HP** and reduces **30 strain**, with normal caps; it never revives dead crew. Repeated visits give no second rest. Continue through **Containment → Signal core**, winning each encounter. Expected: the single Relay Bulwark boss placeholder can be cleared and the summary says **BOSS PLACEHOLDER CLEARED**; milestone 7 now allows full-reward extraction.
+9. In a separate fresh expedition, Wait through a fight to lose. Expected: all deployed crew are lost and the campaign returns to the hub; milestone 7's free recruits allow rebuilding.
+10. Repeat at **1280×720** and **1920×1080**. Check room links, room choices, all twelve inventory slots, overflow text, confirmation dialog, battle Return to room, and keyboard focus. **F11** remains fullscreen. Campaign data persists between scenes but not after closing the app.
 
 The main route is **Airlock → Receiving → Junction → Safe room → Containment → Signal core**. The optional branch is **Junction → Salvage bay → Pressure breach**. Room Resources live in `res://content/rooms/`, with the explicit graph in `res://content/ship.tres`. See EXPLORATION_RULES.md for ownership and transaction rules.
 
@@ -207,8 +224,9 @@ Automated inputs are simulated inside Godot. The recorded rendering checks used 
 ## Files and Git
 
 - `SPECIFICATION.md`: supplied requirements; `PROJECT_PLAN.md`: milestone scopes; `PROGRESS.md`: actual commands, results, limitations, and next steps.
+- `CAMPAIGN_RULES.md`: roster, hub economy, equipment, return outcomes and in-memory persistence contract.
 - `COMBAT_RULES.md`: current battle contract and deferred rules.
-- `content/`: authored definitions and explicit catalogue; `combat/`: runtime records and scene-independent rules.
+- `content/`: authored definitions and explicit catalogue; `combat/`, `exploration/`, and `campaign/`: runtime records and scene-independent rules.
 - `scenes/`: editable screen trees; `scripts/`: presentation/controllers; `ui/`: authored theme; `tests/`: native rules and integration checks.
 - `.godot/`: generated cache, not source. `.tools/`: local engine. `.artifacts/`: local test output. Their contents are excluded from Git except the `.gdignore` markers that keep engine files and test output out of Godot's import scan.
 - `.uid` files are kept in Git so Godot script references remain stable.

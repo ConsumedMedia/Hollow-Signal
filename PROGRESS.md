@@ -1,8 +1,32 @@
 # Hollow Signal — Progress
 
-## Status — 2026-08-28
+## Status — 2026-08-29
 
-M5/M6 implementation and the reported room Resource fix are verified by Godot import, native rules, headless scene and rendered scene checks. The user reported "seems to be working" after the fix and requested GitHub submission on 2026-08-28. This records general M6 playtest acceptance, not individual confirmation of every README check or a separate M5 drill. Milestones 7–13 remain unauthorized.
+Milestone 7 is implemented locally and automatically verified. It adds the persistent in-memory hub and complete prepare/deploy/return loop without disk saving. User acceptance and a Git checkpoint are pending. Milestones 8–13 remain unauthorized.
+
+### Milestone 7 — implementation and actual verification
+
+Added `CampaignService` as the small application-level owner of one in-memory `CampaignState`. New Game creates eight distinct crew records (two per class), while authored actor/module/item Resources remain immutable. The hub supports four-person selection and rank ordering, free recruits and full health restoration, paid strain recovery and supplies, six collectible modules with one owner/equipment slot, and one campaign-wide health upgrade.
+
+Expeditions now use the selected roster records. Boss extraction returns full cargo; room or player-turn combat retreat is guaranteed and returns half salvage/data with integer rounding down; defeat returns no cargo and permanently removes the deployed party from selection. Rewards clear with the active expedition and cannot apply twice. Free recruitment allows rebuilding after losing all four crew. Equipment modifiers are copied into runtime actors and resolved by `CombatRules`, not UI scripts. No disk saving, boss narrative, procedural content, audio or unrelated dependencies were added.
+
+Commands actually ran from `C:\Users\CRS-Workstation\Game Dev` with `.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe`:
+
+```powershell
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --import --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m7-import-final-2.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m7-rules-final-3.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m7-smoke-final-3.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m7-render-final-3.log' -- --capture
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m7-negative-assert-3.log' -- --self-test-failure
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m7-negative-script-3.log' -- --self-test-script-error
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --scene res://scenes/main_menu.tscn --quit-after 5 --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m7-start-main.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --scene res://scenes/hub.tscn --quit-after 5 --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m7-start-hub.log'
+git diff --check
+```
+
+Results: final import exit 0; **314 rules checks, 0 failures, 0 engine errors**; **527 headless scene checks, 0 failures**; **754 rendered Compatibility checks, 0 failures**; standalone main-menu and hub starts exit 0. Intentional assertion run: 315 checks / 1 intended failure / exit 1. Intentional in-memory script-error run: 314 checks / 0 assertion failures / 1 engine error / exit 1. Initial scene testing exposed a malformed generated hub script and a 10-pixel hub overflow; both were fixed before final runs. No broken script was retained.
+
+Rendered checks used OpenGL 3.3, NVIDIA driver 591.86 and an RTX 3080. Visually reviewed the new hub at 1280×720 and 1920×1080: eight callsigns, party ranks, HP/strain, module effect, management controls, focus and navigation are visible without clipping. Automated GUI tests cover roster/module/deploy/retreat/return. Physical mouse/keyboard use, a full natural player-controlled successful expedition, tactical economy balance, app-restart persistence, export and other hardware remain untested. App-restart persistence is intentionally milestone 8.
 
 ### GitHub checkpoint and verified upload — 2026-08-28
 
@@ -162,7 +186,8 @@ Milestone 4 began at local commit `73c4eee`, with four uncommitted files from th
 - Milestone 4: implementation and automated/rendered verification complete; user reported general playtest success on 2026-08-28.
 - Milestone 5: implemented locally; current combined rules/headless/rendered suites pass. User requested milestone 6 without reporting an M5 playtest; acceptance remains unreported.
 - Milestone 6: implementation and automated verification complete; user reported general playtest success after the room parse/focus fixes and requested GitHub submission. Individual acceptance checks were not separately enumerated.
-- Milestones 7–13: not started or authorized.
+- Milestone 7: implemented locally; automated and rendered verification complete. User acceptance and checkpoint pending.
+- Milestones 8–13: not started or authorized.
 
 ## Milestone 4 — Actual verification
 
@@ -570,13 +595,13 @@ Result: exit code 0; 13 milestone headings and 13 not-started statuses; exactly 
 - Milestone 4 received general user playtest acceptance. Individual physical keyboard/mouse, editor F5/F6/F8, display/DPI readability and tactical balance checks were not separately reported; automated GUI input and native screenshots do not establish those results.
 - Only this machine's NVIDIA Compatibility renderer was exercised. No Windows export or other hardware testing; exports remain milestone 13.
 - The first M4 import exited 1 without a printed project error; the final import passed. The same intermittent behavior occurred during earlier milestones. Cause remains unconfirmed; keep the log if it recurs.
-- M5/M6 now add vulnerability, shared power and exploration within an in-memory expedition. Campaign, saving and audio are not implemented. Current verification and remaining manual checks are recorded at the top of this document.
+- M7 adds the in-memory campaign loop. Disk persistence, audio and later presentation work are not implemented. Current verification and remaining manual checks are recorded at the top of this document.
 - The first M6 rendered run had four window/capture dimension assertion failures; the final repeat passed without a layout change. Cause is unconfirmed; retain logs if this recurs.
 - Determinism requires the same content, seed, commands, and pinned engine. Cross-version replay/save compatibility is not claimed.
 - Milestones 5–6 and the room Resource/focus fix were uploaded and verified at `b5074db`; see the submission record above. Godot binaries and verification artifacts are deliberately not uploaded.
 
 ## Next steps
 
-1. M5/M6 checkpoint uploaded and remote commit verified; preserve this baseline.
-2. Retain the README checks for regression testing and complete any unreported individual manual checks; fix further reports before another milestone.
-3. Start milestone 7 only when requested. Milestones 7–13 remain out of scope.
+1. User completes the README milestone 7 playtest; fix any reported failure before a checkpoint or further milestone.
+2. After acceptance, review and upload the intended milestone 7 files only if requested.
+3. Start milestone 8 only when requested. Milestones 8–13 remain out of scope.

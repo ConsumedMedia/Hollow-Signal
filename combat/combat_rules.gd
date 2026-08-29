@@ -26,9 +26,16 @@ static func create_battle(crew: Array[ActorDefinition], enemy: Array[ActorDefini
 		if member.dead:
 			continue
 		var actor: ActorState = ActorState.new(member.id, member.definition, ActorState.Team.CREW)
+		actor.max_health = member.max_health()
 		actor.health = member.health
 		actor.strain = member.strain
 		actor.shaken = member.shaken
+		var module: ModuleDefinition = member.module()
+		if module != null:
+			actor.speed_bonus = module.speed_bonus
+			actor.damage_bonus = module.damage_bonus
+			actor.healing_bonus = module.healing_bonus
+			actor.strain_relief_bonus = module.strain_relief_bonus
 		state.actors.append(actor)
 		state.crew_ranks.append(actor.id)
 	for index: int in range(enemy.size()):
@@ -52,6 +59,23 @@ static func new_expedition(crew: Array[ActorDefinition]) -> ExpeditionState:
 		var member: CrewState = CrewState.new(StringName("crew_%d" % (index + 1)), crew[index])
 		expedition.crew.append(member)
 		expedition.crew_ranks.append(member.id)
+	return expedition
+
+
+static func new_expedition_from_crew(crew: Array[CrewState]) -> ExpeditionState:
+	if crew.is_empty() or crew.size() > MAX_RANKS:
+		return null
+	var expedition: ExpeditionState = ExpeditionState.new()
+	expedition.power = BALANCE.starting_power
+	for member: CrewState in crew:
+		if member == null or member.dead or member.definition == null:
+			return null
+		expedition.crew.append(member)
+		expedition.crew_ranks.append(member.id)
+		var module: ModuleDefinition = member.module()
+		if module != null:
+			expedition.power += module.starting_power_bonus
+	expedition.power = mini(BALANCE.power_max, expedition.power)
 	return expedition
 
 
@@ -150,7 +174,7 @@ static func _target_reason(state: CombatState, actor: ActorState, target: ActorS
 	if ability.damage_max == 0 and ability.effects.size() == 1:
 		var effect: EffectDefinition = ability.effects[0]
 		var recipient: ActorState = actor if effect.on_actor else target
-		if effect.kind == EffectDefinition.Kind.HEAL and recipient.health >= recipient.definition.max_health:
+		if effect.kind == EffectDefinition.Kind.HEAL and recipient.health >= recipient.max_health:
 			return "Target already has full health."
 		if effect.kind == EffectDefinition.Kind.STRAIN and effect.amount < 0 and recipient.strain == 0:
 			return "Target has no strain."
@@ -250,9 +274,28 @@ static func resolve_action(state: CombatState, command: ActionCommand, rng: Rand
 	return events
 
 
+static func retreat(state: CombatState) -> Array[CombatEvent]:
+	var events: Array[CombatEvent] = []
+	if state == null or state.outcome != &"ongoing":
+		return events
+	var actor: ActorState = state.get_actor(state.active_actor_id)
+	if actor == null or actor.side != ActorState.Team.CREW or not actor.is_conscious():
+		return events
+	state.outcome = &"retreat"
+	state.expedition.battle_active = false
+	state.active_actor_id = &""
+	_sync_crew(state)
+	var ended: CombatEvent = CombatEvent.new(&"battle_ended")
+	ended.outcome = &"retreat"
+	events.append(ended)
+	return events
+
+
 static func adjusted_damage(target: ActorState, ability: AbilityDefinition, rolled: int,
 		source: ActorState = null, overcharge: bool = false) -> int:
 	var multiplier: float = ability.exposed_multiplier if target.get_status(StatusDefinition.Kind.EXPOSE) != null else 1.0
+	if source != null:
+		rolled += source.damage_bonus
 	if source != null and source.shaken:
 		multiplier *= BALANCE.shaken_damage_multiplier
 	if overcharge:
@@ -314,7 +357,7 @@ static func _apply_effect(state: CombatState, source: ActorState, target: ActorS
 		EffectDefinition.Kind.HEAL:
 			var was_downed: bool = target.is_downed()
 			var healed: CombatEvent = _event(&"healed", source, target)
-			healed.amount = mini(effect.amount, target.definition.max_health - target.health)
+			healed.amount = mini(effect.amount + source.healing_bonus, target.max_health - target.health)
 			target.health += healed.amount
 			healed.health_after = target.health
 			events.append(healed)
@@ -322,7 +365,10 @@ static func _apply_effect(state: CombatState, source: ActorState, target: ActorS
 				events.append(_event(&"revived", source, target))
 		EffectDefinition.Kind.STRAIN:
 			var changed: CombatEvent = _event(&"strain_changed", source, target)
-			var next_strain: int = clampi(target.strain + effect.amount, 0, state.balance.strain_max)
+			var effective_amount: int = effect.amount
+			if effective_amount < 0:
+				effective_amount -= source.strain_relief_bonus
+			var next_strain: int = clampi(target.strain + effective_amount, 0, state.balance.strain_max)
 			changed.amount = next_strain - target.strain
 			target.strain = next_strain
 			changed.strain_after = next_strain
@@ -386,7 +432,7 @@ static func _finish_outcome(state: CombatState, events: Array[CombatEvent]) -> b
 	else:
 		for actor: ActorState in state.actors:
 			if actor.is_downed():
-				actor.health = mini(actor.definition.max_health, state.balance.victory_recovery_health)
+				actor.health = mini(actor.max_health, state.balance.victory_recovery_health)
 				var recovered: CombatEvent = _event(&"recovered", actor, actor)
 				recovered.health_after = actor.health
 				events.append(recovered)
@@ -409,7 +455,7 @@ static func _start_round(state: CombatState, rng: RandomNumberGenerator) -> void
 	for actor_id: StringName in state.round_order:
 		var roll: int = rng.randi_range(1, 6)
 		state.initiative_rolls[actor_id] = roll
-		state.initiative_scores[actor_id] = state.get_actor(actor_id).definition.speed + roll
+		state.initiative_scores[actor_id] = state.get_actor(actor_id).speed() + roll
 	state.round_order.sort_custom(func(a: StringName, b: StringName) -> bool:
 		if state.initiative_scores[a] == state.initiative_scores[b]:
 			return String(a) < String(b)

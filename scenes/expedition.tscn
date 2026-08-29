@@ -207,12 +207,12 @@ text = "Skip corridor animation"
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "End test / abandon to hub"
+text = "Retreat / lose half salvage"
 
 [node name="Footer" type="Label" parent="Margin/Layout"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
-text = "Connected rooms only. Events resolve once. No campaign rewards or saving yet. TAB focus / ENTER confirm / F11 fullscreen"
+text = "Retreat is guaranteed and loses half salvage. Extract after the boss for full rewards. TAB focus / ENTER confirm / F11 fullscreen"
 
 [node name="DiscardConfirmation" type="ConfirmationDialog" parent="."]
 title = "Confirm cargo decision"

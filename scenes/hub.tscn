@@ -1,8 +1,7 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/screen_navigation.gd" id="1_nav"]
-[ext_resource type="Theme" path="res://ui/prototype_theme.tres" id="2_theme"]
-[ext_resource type="Script" path="res://scripts/placeholder_stage.gd" id="3_stage"]
+[ext_resource type="Script" path="res://scripts/hub_screen.gd" id="1"]
+[ext_resource type="Theme" path="res://ui/prototype_theme.tres" id="2"]
 
 [node name="Hub" type="Control"]
 layout_mode = 3
@@ -11,9 +10,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme = ExtResource("2_theme")
-script = ExtResource("1_nav")
-initial_focus = NodePath("Margin/Layout/Navigation/OpenBattleTest")
+theme = ExtResource("2")
+script = ExtResource("1")
+initial_focus = NodePath("Margin/Layout/Navigation/Deploy")
 back_scene = "res://scenes/main_menu.tscn"
 
 [node name="Background" type="ColorRect" parent="."]
@@ -21,111 +20,146 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-mouse_filter = 2
 color = Color(0.035, 0.051, 0.075, 1)
+mouse_filter = 2
 
 [node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/margin_left = 96
-theme_override_constants/margin_top = 64
-theme_override_constants/margin_right = 96
-theme_override_constants/margin_bottom = 56
+theme_override_constants/margin_left = 48
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 48
+theme_override_constants/margin_bottom = 16
 
 [node name="Layout" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
-theme_override_constants/separation = 28
+theme_override_constants/separation = 6
 
 [node name="Header" type="Label" parent="Margin/Layout"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.47, 0.84, 0.85, 1)
-theme_override_font_sizes/font_size = 24
-text = "HOLLOW SIGNAL   /   HUB"
+theme_override_font_sizes/font_size = 28
+text = "HOLLOW SIGNAL / SALVAGE HUB"
 
-[node name="Title" type="Label" parent="Margin/Layout"]
+[node name="Summary" type="Label" parent="Margin/Layout"]
+unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 64
-text = "Salvage operations"
+theme_override_font_sizes/font_size = 22
 
-[node name="Subtitle" type="Label" parent="Margin/Layout"]
+[node name="Report" type="Label" parent="Margin/Layout"]
+unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.65, 0.73, 0.77, 1)
-text = "Hub placeholder — your future staging area before entering the derelict."
+autowrap_mode = 2
 
 [node name="Body" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 32
+theme_override_constants/separation = 18
 
-[node name="VesselPanel" type="PanelContainer" parent="Margin/Layout/Body"]
+[node name="Roster" type="VBoxContainer" parent="Margin/Layout/Body"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Vessel" type="VBoxContainer" parent="Margin/Layout/Body/VesselPanel"]
+[node name="Title" type="Label" parent="Margin/Layout/Body/Roster"]
 layout_mode = 2
-theme_override_constants/separation = 20
+text = "ROSTER / select a crew member"
 
-[node name="Label" type="Label" parent="Margin/Layout/Body/VesselPanel/Vessel"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.47, 0.84, 0.85, 1)
-text = "RESEARCH VESSEL / SIGNAL DETECTED"
-
-[node name="Schematic" type="Control" parent="Margin/Layout/Body/VesselPanel/Vessel"]
-custom_minimum_size = Vector2(640, 300)
+[node name="RosterGrid" type="GridContainer" parent="Margin/Layout/Body/Roster"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
-mouse_filter = 2
-script = ExtResource("3_stage")
+columns = 2
 
-[node name="Note" type="Label" parent="Margin/Layout/Body/VesselPanel/Vessel"]
+[node name="CrewActions" type="GridContainer" parent="Margin/Layout/Body/Roster"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "Explore eight authored rooms. Optional salvage and hazard branch; a route to the boss placeholder."
-autowrap_mode = 2
+columns = 3
 
-[node name="SetupPanel" type="PanelContainer" parent="Margin/Layout/Body"]
-custom_minimum_size = Vector2(650, 0)
+[node name="ToggleParty" type="Button" parent="Margin/Layout/Body/Roster/CrewActions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Add to party"
+
+[node name="RankForward" type="Button" parent="Margin/Layout/Body/Roster/CrewActions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Rank forward"
+
+[node name="RankBack" type="Button" parent="Margin/Layout/Body/Roster/CrewActions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Rank back"
+
+[node name="RestoreHealth" type="Button" parent="Margin/Layout/Body/Roster/CrewActions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Restore health / FREE"
+
+[node name="RecoverStrain" type="Button" parent="Margin/Layout/Body/Roster/CrewActions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Treat 30 strain / 5 salvage"
+
+[node name="Management" type="VBoxContainer" parent="Margin/Layout/Body"]
+custom_minimum_size = Vector2(590, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Info" type="VBoxContainer" parent="Margin/Layout/Body/SetupPanel"]
+[node name="RecruitLabel" type="Label" parent="Margin/Layout/Body/Management"]
 layout_mode = 2
-theme_override_constants/separation = 28
-alignment = 1
+text = "FREE BASIC RECRUIT"
 
-[node name="Title" type="Label" parent="Margin/Layout/Body/SetupPanel/Info"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 36
-text = "First contact is ready"
-
-[node name="Description" type="Label" parent="Margin/Layout/Body/SetupPanel/Info"]
-layout_mode = 2
-text = "The hub is still a placeholder.\n\nExplore the ship with four crew, shared power and a twelve-slot hold, or open the isolated battle test."
-autowrap_mode = 2
-
-[node name="Rule" type="HSeparator" parent="Margin/Layout/Body/SetupPanel/Info"]
+[node name="RecruitChoice" type="OptionButton" parent="Margin/Layout/Body/Management"]
+unique_name_in_owner = true
 layout_mode = 2
 
-[node name="Scope" type="Label" parent="Margin/Layout/Body/SetupPanel/Info"]
+[node name="Recruit" type="Button" parent="Margin/Layout/Body/Management"]
+unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.65, 0.73, 0.77, 1)
-theme_override_font_sizes/font_size = 24
-text = "Crew selection, recruitment, supplies, recovery and upgrades are not implemented yet. No campaign data is created."
-autowrap_mode = 2
+text = "Recruit selected class / FREE"
+
+[node name="ModuleLabel" type="Label" parent="Margin/Layout/Body/Management"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "MODULE / one per crew, one owner"
+
+[node name="ModuleChoice" type="OptionButton" parent="Margin/Layout/Body/Management"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ModuleActions" type="HBoxContainer" parent="Margin/Layout/Body/Management"]
+layout_mode = 2
+
+[node name="BuyModule" type="Button" parent="Margin/Layout/Body/Management/ModuleActions"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Collect / 10 salvage"
+
+[node name="EquipModule" type="Button" parent="Margin/Layout/Body/Management/ModuleActions"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Equip selected"
+
+[node name="BuyCell" type="Button" parent="Margin/Layout/Body/Management"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Buy expedition power cell / 5 salvage"
+
+[node name="BuyUpgrade" type="Button" parent="Margin/Layout/Body/Management"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Crew plating upgrade +2 max HP / 30 salvage"
 
 [node name="Navigation" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
-theme_override_constants/separation = 24
 
 [node name="OpenBattleTest" type="Button" parent="Margin/Layout/Navigation"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Open Battle Test"
+text = "Battle Test"
 
 [node name="MainMenu" type="Button" parent="Margin/Layout/Navigation"]
 unique_name_in_owner = true
@@ -133,18 +167,15 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Main Menu"
 
-[node name="ExploreShip" type="Button" parent="Margin/Layout/Navigation"]
+[node name="Deploy" type="Button" parent="Margin/Layout/Navigation"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Explore Ship"
+text = "Deploy selected party"
 
 [node name="Footer" type="Label" parent="Margin/Layout"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.65, 0.73, 0.77, 1)
-theme_override_font_sizes/font_size = 24
-text = "ESC main menu   /   TAB or ARROWS to focus   /   ENTER to confirm   /   F11 fullscreen"
+text = "Campaign persists across scenes until New Game or app close. Disk save arrives in milestone 8."
 
-[connection signal="pressed" from="Margin/Layout/Navigation/OpenBattleTest" to="." method="open_screen" binds= ["res://scenes/battle_test.tscn"]]
-[connection signal="pressed" from="Margin/Layout/Navigation/MainMenu" to="." method="open_screen" binds= ["res://scenes/main_menu.tscn"]]
-[connection signal="pressed" from="Margin/Layout/Navigation/ExploreShip" to="." method="open_screen" binds= ["res://scenes/expedition.tscn"]]
+[connection signal="pressed" from="Margin/Layout/Navigation/OpenBattleTest" to="." method="open_screen" binds=["res://scenes/battle_test.tscn"]]
+[connection signal="pressed" from="Margin/Layout/Navigation/MainMenu" to="." method="open_screen" binds=["res://scenes/main_menu.tscn"]]

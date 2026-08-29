@@ -37,6 +37,11 @@ func open_screen(scene_path: String) -> void:
 	_change_screen.call_deferred(scene_path)
 
 
+func new_game(scene_path: String) -> void:
+	CampaignService.new_campaign()
+	open_screen(scene_path)
+
+
 func _change_screen(scene_path: String) -> void:
 	var result: Error = get_tree().change_scene_to_file(scene_path)
 	if result != OK:

@@ -93,6 +93,7 @@ func _run() -> void:
 	await _test_manual_opening()
 	await _test_drill_opening()
 	await _test_vulnerability_ui()
+	await _test_campaign_ui()
 	await _test_exploration_ui()
 	_check(_monitor.error_count() == 0, "No engine errors during scene checks")
 	# Optional negative self-test proves this runner exits unsuccessfully.
@@ -100,6 +101,31 @@ func _run() -> void:
 		_check(false, "Intentional failure to verify exit code")
 	print("SETUP SMOKE: %d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
+
+
+func _test_campaign_ui() -> void:
+	root.size = Vector2i(1280, 720)
+	await _open(MENU)
+	await _click_button(current_scene.get_node("%NewGame") as Button)
+	var service: Node = root.get_node("CampaignService")
+	var campaign: CampaignState = service.get("state") as CampaignState
+	var roster: GridContainer = current_scene.get_node("%RosterGrid") as GridContainer
+	_check(campaign != null and campaign.roster.size() == 8 and roster.get_child_count() == 8, "New Game creates eight visible persistent crew")
+	_check(campaign.party_ids.size() == 4 and not (current_scene.get_node("%Deploy") as Button).disabled, "Four starting ranks are ready to deploy")
+	var first: Button = roster.get_child(0) as Button
+	await _click_button(first)
+	var first_id: StringName = campaign.roster[0].id
+	await _click_button(current_scene.get_node("%RankBack") as Button)
+	_check(campaign.party_ids[1] == first_id, "Hub rank button changes deployment order")
+	await _click_button(current_scene.get_node("%BuyModule") as Button)
+	await _click_button(current_scene.get_node("%EquipModule") as Button)
+	_check(campaign.owned_modules.size() == 1 and campaign.get_crew(first_id).module_id == campaign.owned_modules[0], "Hub purchase and equip controls assign one module")
+	await _click_button(current_scene.get_node("%Deploy") as Button)
+	_check(current_scene.scene_file_path == "res://scenes/expedition.tscn" and campaign.active_expedition != null, "Deploy opens an expedition owned by the campaign")
+	await _click_button(current_scene.get_node("%EndTest") as Button)
+	_check(current_scene.scene_file_path == HUB and campaign.active_expedition == null, "Guaranteed room retreat returns to the persistent hub")
+	_check((current_scene.get_node("%Report") as Label).text.contains("Retreat"), "Hub reports the expedition outcome once")
+	_check_layout(HUB, Vector2i(1280, 720))
 
 
 func _test_exploration_ui() -> void:

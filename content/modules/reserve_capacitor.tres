@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ModuleDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://content/module_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"reserve_capacitor"
+display_name = "Reserve Capacitor"
+description = "Adds 10 starting expedition power, up to the normal cap."
+starting_power_bonus = 10

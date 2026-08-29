@@ -15,7 +15,8 @@ var inventory_buttons: Array[Button] = []
 
 func _ready() -> void:
 	super._ready()
-	expedition = ExpeditionRules.create(ContentCatalogue.SHIP, ContentCatalogue.crew_party(), expedition_seed)
+	var campaign: CampaignState = CampaignService.state
+	expedition = campaign.active_expedition if campaign != null and campaign.active_expedition != null else ExpeditionRules.create(ContentCatalogue.SHIP, ContentCatalogue.crew_party(), expedition_seed)
 	if expedition == null:
 		(%RoomDescription as Label).text = "Invalid ship content. Check content/ship.tres and its room Resources."
 		return
@@ -46,7 +47,7 @@ func _ready() -> void:
 	(%UseCell as Button).pressed.connect(_use_cell)
 	(%DiscardSlot as Button).pressed.connect(_ask_discard_slot)
 	(%DiscardIncoming as Button).pressed.connect(_ask_discard_incoming)
-	(%EndTest as Button).pressed.connect(open_screen.bind("res://scenes/hub.tscn"))
+	(%EndTest as Button).pressed.connect(_return_to_hub)
 	dialog.confirmed.connect(_confirm_discard)
 	dialog.canceled.connect(func() -> void: _discard_choice = -3)
 	_refresh()
@@ -168,6 +169,19 @@ func _finish_battle() -> void:
 	selected_slot = -1
 	_refresh()
 	(%EndTest as Button).grab_focus()
+	if expedition.outcome in [&"retreat", &"defeat"]:
+		_return_to_hub()
+
+
+func _return_to_hub() -> void:
+	if expedition == null or not expedition.destination.is_empty() or not expedition.pending_loot.is_empty() or expedition.battle_active:
+		return
+	var campaign: CampaignState = CampaignService.state
+	if campaign != null and campaign.active_expedition == expedition:
+		var result: StringName = &"defeat" if expedition.failed else (&"success" if expedition.boss_cleared else &"retreat")
+		if not CampaignRules.complete_expedition(campaign, result):
+			return
+	open_screen("res://scenes/hub.tscn")
 
 
 func _refresh() -> void:
@@ -182,6 +196,7 @@ func _refresh() -> void:
 	room_map.refresh()
 	(%SkipCorridor as Button).visible = travelling
 	(%EndTest as Button).disabled = travelling or pending
+	(%EndTest as Button).text = "Return to hub / party lost" if expedition.failed else ("Extract success" if expedition.boss_cleared else "Retreat / lose half salvage")
 	var entry_power: int = expedition.power if travelling else maxi(0, expedition.power - CombatRules.BALANCE.corridor_power_cost)
 	(%Summary as Label).text = "POWER %d/%d | Entry strain after travel +%d | Cargo %d/%d slots | %s" % [
 		expedition.power, CombatRules.BALANCE.power_max, CombatRules.room_strain(entry_power),
@@ -189,7 +204,7 @@ func _refresh() -> void:
 		"EXPEDITION FAILED" if expedition.failed else ("BOSS PLACEHOLDER CLEARED" if expedition.boss_cleared else "Exploring")]
 	var crew: PackedStringArray = []
 	for member: CrewState in expedition.crew:
-		crew.append("%s %s: %s" % [String(member.id).replace("crew_", "C"), member.definition.display_name,
+		crew.append("%s / %s: %s" % [member.call_sign, member.definition.display_name,
 			"DEAD" if member.dead else ("%d HP / %d strain%s" % [member.health, member.strain, " SHAKEN" if member.shaken else ""])])
 	(%CrewSummary as Label).text = "   |   ".join(crew)
 	(%RoomTitle as Label).text = "Corridor to " + expedition.ship.get_room(expedition.destination).display_name if travelling else room.display_name
@@ -197,7 +212,7 @@ func _refresh() -> void:
 	if record.resolved:
 		(%RoomDescription as Label).text += "\n\nResolved once. Backtracking costs power but never regenerates this room's event or loot."
 	if expedition.failed:
-		(%RoomDescription as Label).text = "No conscious crew remain. All deployed crew were lost. This test expedition has ended. Hub recovery and recruitment arrive in milestone 7."
+		(%RoomDescription as Label).text = "No conscious crew remain. All deployed crew were permanently lost. Return to the hub; free basic recruits keep the campaign playable."
 	var inspection: bool = room.kind in [RoomDefinition.Kind.SALVAGE, RoomDefinition.Kind.HAZARD, RoomDefinition.Kind.SAFE]
 	(%InspectAccept as Button).visible = inspection and not record.resolved
 	(%InspectLeave as Button).visible = inspection and not record.resolved

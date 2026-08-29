@@ -33,7 +33,7 @@ static func _score(state: CombatState, command: ActionCommand) -> float:
 		var recipient: ActorState = actor if effect.on_actor else target
 		match effect.kind:
 			EffectDefinition.Kind.HEAL:
-				score += mini(effect.amount, recipient.definition.max_health - recipient.health)
+				score += mini(effect.amount, recipient.max_health - recipient.health)
 			EffectDefinition.Kind.STRAIN:
 				score += mini(effect.amount, state.balance.strain_max - recipient.strain) if effect.amount > 0 else mini(-effect.amount, recipient.strain)
 			EffectDefinition.Kind.STATUS:

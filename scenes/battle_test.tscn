@@ -388,6 +388,13 @@ size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Back to Hub"
 
+[node name="Retreat" type="Button" parent="Margin/Layout/Navigation"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Retreat / lose half salvage"
+
 [node name="ReturnToRoom" type="Button" parent="Margin/Layout/Navigation"]
 layout_mode = 2
 unique_name_in_owner = true

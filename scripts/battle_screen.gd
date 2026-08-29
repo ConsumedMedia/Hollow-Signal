@@ -45,6 +45,7 @@ func _ready() -> void:
 	next_button.pressed.connect(_next_battle)
 	(%Drill as Button).pressed.connect(_start_drill)
 	(%ReturnToRoom as Button).pressed.connect(_return_to_room)
+	(%Retreat as Button).pressed.connect(_retreat)
 	for rank: int in range(1, 5):
 		slot_button(ActorState.Team.CREW, rank).pressed.connect(_on_slot_pressed.bind(ActorState.Team.CREW, rank))
 		slot_button(ActorState.Team.ENEMY, rank).pressed.connect(_on_slot_pressed.bind(ActorState.Team.ENEMY, rank))
@@ -52,7 +53,8 @@ func _ready() -> void:
 		for button: Button in [encounter_button, restart_button, next_button, %Drill, %BackToHub, %MainMenu]:
 			button.hide()
 		(%ReturnToRoom as Button).show()
-		$Margin/Layout/Footer.text = "Expedition battle: health, strain, power and deaths carry back to the room. Retreat arrives in milestone 7."
+		(%Retreat as Button).show()
+		$Margin/Layout/Footer.text = "Retreat is guaranteed on a crew turn and forfeits half salvage. Deaths, health and strain persist."
 		_log_lines = ["Expedition encounter. Defeat loses the deployed crew; victory returns survivors to the ship."]
 		controller.start_battle(true)
 	else:
@@ -63,6 +65,12 @@ func _return_to_room() -> void:
 	if expedition_mode and not _transition_pending and controller.phase == BattleController.Phase.FINISHED:
 		_transition_pending = true
 		expedition_battle_closed.emit()
+
+
+func _retreat() -> void:
+	if expedition_mode and controller.retreat():
+		selected_action = &""
+		_refresh()
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -206,7 +214,7 @@ func _present_events(events: Array[CombatEvent]) -> void:
 				_append_log("Round %d: initiative rerolled (Speed + 1–6)." % event.round_number)
 			&"battle_ended":
 				if expedition_mode:
-					_append_log("VICTORY. Return to room with your survivors." if event.outcome == &"victory" else "DEFEAT. All deployed crew lost. Return to the ship summary.")
+					_append_log("RETREAT. Return to the hub; half salvage is forfeited." if event.outcome == &"retreat" else ("VICTORY. Return to room with your survivors." if event.outcome == &"victory" else "DEFEAT. All deployed crew lost. Return to the ship summary."))
 				else:
 					_append_log("VICTORY. Next battle keeps survivors; Restart creates fresh crew." if event.outcome == &"victory"
 						else "DEFEAT. All deployed crew are lost. Restart creates a NEW test expedition.")
@@ -227,6 +235,7 @@ func _refresh() -> void:
 	status_label.text = "\n".join(_log_lines)
 	var state: CombatState = controller.state
 	var can_act: bool = controller.phase == BattleController.Phase.PLAYER_INPUT and _setup_error.is_empty()
+	(%Retreat as Button).disabled = not expedition_mode or not can_act
 	var legal: Array[ActionCommand] = []
 	if state != null:
 		legal = CombatRules.get_legal_actions(state, state.active_actor_id)
@@ -343,9 +352,9 @@ func _refresh_slot(team: ActorState.Team, rank: int, legal: Array[ActionCommand]
 		status_labels.append("%s%d" % [symbol, status.remaining])
 		status_details.append("%s: %d turn starts left" % [status.definition.display_name, status.remaining])
 	button.text = "Rank %d / %s\n%s\nHP %d/%d | Str %d\n%s\n%s" % [rank, actor.short_name(), actor.definition.display_name,
-		actor.health, actor.definition.max_health, actor.strain, marker, " ".join(status_labels) if not status_labels.is_empty() else "—"]
+		actor.health, actor.max_health, actor.strain, marker, " ".join(status_labels) if not status_labels.is_empty() else "—"]
 	button.tooltip_text = "%s / %s / Speed %d. %s" % [actor.short_name(), actor.definition.display_name,
-		actor.definition.speed, "Click to resolve the selected action." if not button.disabled else "Not a legal target for the selected action."]
+		actor.speed(), "Click to resolve the selected action." if not button.disabled else "Not a legal target for the selected action."]
 	button.tooltip_text += "\n" + "\n".join(status_details)
 	if actor.id == controller.state.active_actor_id:
 		button.modulate = Color("ffd5a8")

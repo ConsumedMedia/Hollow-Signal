@@ -119,7 +119,7 @@ script = ExtResource("3_stage")
 layout_mode = 2
 theme_override_colors/font_color = Color(0.65, 0.73, 0.77, 1)
 theme_override_font_sizes/font_size = 24
-text = "Eight-room exploration and crew combat.\nNew Game opens the placeholder hub.\nNo campaign or saving yet."
+text = "Eight-room exploration and crew combat.\nManage eight crew, equipment and recovery.\nIn-memory campaign; disk saving arrives next."
 
 [node name="FooterRule" type="HSeparator" parent="Margin/Layout"]
 layout_mode = 2
@@ -130,6 +130,6 @@ theme_override_colors/font_color = Color(0.65, 0.73, 0.77, 1)
 theme_override_font_sizes/font_size = 24
 text = "CLICK to select   /   TAB or ARROWS to focus   /   ENTER to confirm   /   F11 fullscreen"
 
-[connection signal="pressed" from="Margin/Layout/Body/Actions/NewGame" to="." method="open_screen" binds= ["res://scenes/hub.tscn"]]
+[connection signal="pressed" from="Margin/Layout/Body/Actions/NewGame" to="." method="new_game" binds= ["res://scenes/hub.tscn"]]
 [connection signal="pressed" from="Margin/Layout/Body/Actions/BattleTest" to="." method="open_screen" binds= ["res://scenes/battle_test.tscn"]]
 [connection signal="pressed" from="Margin/Layout/Body/Actions/Quit" to="." method="quit_game"]

@@ -73,6 +73,19 @@ func submit_player_action(action_id: StringName, target_id: StringName, expected
 	return true
 
 
+func retreat() -> bool:
+	if phase != Phase.PLAYER_INPUT or state == null or _last_input_frame == Engine.get_process_frames():
+		return false
+	var events: Array[CombatEvent] = CombatRules.retreat(state)
+	if events.is_empty():
+		return false
+	_last_input_frame = Engine.get_process_frames()
+	phase = Phase.FINISHED
+	events_resolved.emit(events)
+	state_changed.emit()
+	return true
+
+
 func _on_enemy_delay_timeout() -> void:
 	if phase != Phase.ENEMY_TURN or state == null:
 		return

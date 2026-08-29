@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ModuleDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://content/module_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"cutting_edge"
+display_name = "Cutting Edge"
+description = "Adds 1 damage to damaging abilities."
+damage_bonus = 1

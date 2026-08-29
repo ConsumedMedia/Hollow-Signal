@@ -9,6 +9,20 @@ static func create(ship: ShipDefinition, crew: Array[ActorDefinition], seed_valu
 		if actor == null or not actor.is_valid():
 			return null
 	var state: ExpeditionState = CombatRules.new_expedition(crew)
+	return _configure(state, ship, seed_value, 2)
+
+
+static func create_for_crew(ship: ShipDefinition, crew: Array[CrewState], seed_value: int = 1729,
+		starting_cells: int = 2) -> ExpeditionState:
+	if ship == null or not ship.is_valid() or crew.size() != CombatRules.MAX_RANKS:
+		return null
+	var state: ExpeditionState = CombatRules.new_expedition_from_crew(crew)
+	return _configure(state, ship, seed_value, starting_cells)
+
+
+static func _configure(state: ExpeditionState, ship: ShipDefinition, seed_value: int, starting_cells: int) -> ExpeditionState:
+	if state == null:
+		return null
 	state.ship = ship
 	state.inventory = InventoryState.new()
 	state.inventory.capacity = ship.inventory_slots
@@ -20,7 +34,10 @@ static func create(ship: ShipDefinition, crew: Array[ActorDefinition], seed_valu
 	state.current_room = ship.entry_id
 	state.rooms[ship.entry_id].visited = true
 	state.rooms[ship.entry_id].resolved = true
-	_queue_loot(state, ship.starting_items)
+	var cells: int = maxi(0, starting_cells)
+	if cells > 0:
+		state.pending_loot.append(ItemStack.new(ContentCatalogue.POWER_CELL, cells))
+		settle_loot(state)
 	return state
 
 
@@ -99,12 +116,17 @@ static func finish_encounter(state: ExpeditionState, battle: CombatState) -> boo
 	var room: RoomDefinition = state.ship.get_room(state.encounter_room)
 	state.encounter_room = &""
 	if battle.outcome == &"defeat":
+		state.outcome = &"defeat"
+		return true
+	if battle.outcome == &"retreat":
+		state.outcome = &"retreat"
 		return true
 	if state.rooms[room.id].resolved:
 		return false
 	state.rooms[room.id].resolved = true
 	if room.id == state.ship.boss_id:
 		state.boss_cleared = true
+		state.outcome = &"success"
 	_queue_loot(state, room.loot)
 	return true
 

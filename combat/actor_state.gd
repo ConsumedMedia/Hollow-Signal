@@ -13,13 +13,23 @@ var shaken: bool = false
 var dead: bool = false
 var statuses: Array[StatusState] = []
 var uses: Dictionary[StringName, int] = {}
+var max_health: int
+var speed_bonus: int = 0
+var damage_bonus: int = 0
+var healing_bonus: int = 0
+var strain_relief_bonus: int = 0
 
 
 func _init(actor_id: StringName, actor_definition: ActorDefinition, actor_side: Team) -> void:
 	id = actor_id
 	definition = actor_definition
 	side = actor_side
-	health = definition.max_health
+	max_health = definition.max_health
+	health = max_health
+
+
+func speed() -> int:
+	return definition.speed + speed_bonus
 
 
 func is_conscious() -> bool:

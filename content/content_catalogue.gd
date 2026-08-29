@@ -16,6 +16,13 @@ const NEEDLE: ActorDefinition = preload("res://content/actors/needle.tres")
 const CHORISTER: ActorDefinition = preload("res://content/actors/chorister.tres")
 const SHIP: ShipDefinition = preload("res://content/ship.tres")
 const POWER_CELL: ItemDefinition = preload("res://content/items/power_cell.tres")
+const MODULES: Array[ModuleDefinition] = [
+	preload("res://content/modules/reinforced_plating.tres"),
+	preload("res://content/modules/servo_rig.tres"),
+	preload("res://content/modules/cutting_edge.tres"),
+	preload("res://content/modules/med_injector.tres"),
+	preload("res://content/modules/calming_relay.tres"),
+	preload("res://content/modules/reserve_capacitor.tres")]
 
 
 static func crew_party() -> Array[ActorDefinition]:
@@ -24,3 +31,10 @@ static func crew_party() -> Array[ActorDefinition]:
 
 static func enemy_party(signal_patrol: bool = false) -> Array[ActorDefinition]:
 	return [MAULER, BULWARK, CHORISTER if signal_patrol else TUGGER, NEEDLE]
+
+
+static func get_module(module_id: StringName) -> ModuleDefinition:
+	for module: ModuleDefinition in MODULES:
+		if module.id == module_id:
+			return module
+	return null

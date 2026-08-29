@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="CampaignBalance" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://content/campaign_balance.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+starting_salvage = 20
+starting_cells = 2
+recovery_cost = 5
+recovery_amount = 30
+cell_cost = 5
+module_cost = 10
+upgrade_cost = 30
+upgrade_health_bonus = 2
+retreat_reward_divisor = 2

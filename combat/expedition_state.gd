@@ -15,6 +15,7 @@ var encounter_room: StringName = &""
 var inventory: InventoryState
 var pending_loot: Array[ItemStack] = []
 var boss_cleared: bool = false
+var outcome: StringName = &"ongoing"
 
 
 func get_crew(crew_id: StringName) -> CrewState:

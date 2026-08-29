@@ -22,6 +22,7 @@ func run() -> int:
 	_test_exploration_rules()
 	_test_inventory_and_room_events()
 	_test_full_expedition()
+	_test_campaign_loop()
 	if "--self-test-failure" in OS.get_cmdline_user_args():
 		_check(false, "Intentional test-runner failure")
 	print("COMBAT RULES: %d checks, %d failures" % [_checks, _failures])
@@ -960,6 +961,75 @@ func _test_full_expedition() -> void:
 		_check(ExpeditionRules.finish_encounter(state, battle), "Battle resolution returns to " + String(destination))
 	_check(state.boss_cleared and not state.failed and state.current_room == &"signal_core", "Authored expedition reaches and clears the single-rank boss placeholder")
 	_check(not state.rooms[&"salvage"].visited and not state.rooms[&"hazard"].visited, "Successful main route does not require the optional branch")
+
+
+func _test_campaign_loop() -> void:
+	var retreat_expedition: ExpeditionState = CombatRules.new_expedition(ContentCatalogue.crew_party())
+	var retreat_rng: RandomNumberGenerator = _rng(18)
+	var retreat_battle: CombatState = CombatRules.create_battle([], ContentCatalogue.enemy_party(), retreat_rng, retreat_expedition)
+	while retreat_battle.get_actor(retreat_battle.active_actor_id).side == ActorState.Team.ENEMY:
+		CombatRules.resolve_action(retreat_battle, EnemyPolicy.choose_action(retreat_battle), retreat_rng)
+	var retreat_events: Array[CombatEvent] = CombatRules.retreat(retreat_battle)
+	_check(retreat_events.size() == 1 and retreat_battle.outcome == &"retreat" and not retreat_expedition.battle_active, "Retreat is guaranteed on a conscious crew turn and ends combat")
+	_check(CombatRules.retreat(retreat_battle).is_empty(), "Terminal retreat cannot resolve twice")
+	var campaign: CampaignState = CampaignRules.create_campaign()
+	_check(CampaignRules.BALANCE.is_valid(), "Authored campaign economy values validate")
+	_check(campaign.roster.size() == 8 and campaign.party_ids.size() == 4, "Campaign starts with eight individuals and four selected ranks")
+	var class_counts: Dictionary[StringName, int] = {}
+	for member: CrewState in campaign.roster:
+		class_counts[member.definition.id] = class_counts.get(member.definition.id, 0) + 1
+	_check(class_counts.size() == 4 and class_counts.values().all(func(count: int) -> bool: return count == 2), "Starting roster has two of each class")
+	_check(ContentCatalogue.MODULES.size() == 6 and ContentCatalogue.MODULES.all(func(module: ModuleDefinition) -> bool: return module.is_valid()), "Six valid authored modules are available")
+	var first_id: StringName = campaign.party_ids[0]
+	_check(CampaignRules.move_party(campaign, first_id, 1) and campaign.party_ids[1] == first_id, "Hub rank ordering swaps adjacent selected crew")
+	_check(CampaignRules.toggle_party(campaign, first_id) and campaign.party_ids.size() == 3, "Selected crew can be removed from the party")
+	_check(CampaignRules.deploy(campaign) == null, "Deployment requires exactly four living crew")
+	_check(CampaignRules.toggle_party(campaign, first_id), "Crew can be restored to the selected party")
+	var member: CrewState = campaign.get_crew(first_id)
+	member.health = 1
+	member.strain = 80
+	member.shaken = true
+	_check(CampaignRules.restore_health_free(campaign, first_id) and member.health == member.max_health(), "Hub health restoration is free and complete")
+	var currency: int = campaign.salvage
+	_check(CampaignRules.recover_strain(campaign, first_id) and member.strain == 50 and member.shaken and campaign.salvage == currency - 5, "Paid recovery reduces persistent strain and respects Shaken hysteresis")
+	_check(CampaignRules.recover_strain(campaign, first_id) and member.strain == 20 and not member.shaken, "Further recovery clears Shaken below 50")
+	campaign.salvage = 100
+	var plating: ModuleDefinition = ContentCatalogue.MODULES[0]
+	_check(CampaignRules.buy_module(campaign, plating.id) and not CampaignRules.buy_module(campaign, plating.id), "A collectible module can be purchased exactly once")
+	var old_max: int = member.max_health()
+	_check(CampaignRules.equip_module(campaign, first_id, plating.id) and member.max_health() == old_max + plating.health_bonus, "One equipped module changes runtime stats without mutating actor content")
+	var other: CrewState = campaign.roster[4]
+	member.health = member.max_health()
+	_check(CampaignRules.equip_module(campaign, other.id, plating.id) and member.module_id.is_empty() and other.module_id == plating.id and member.health == member.max_health(), "A module has one crew owner, moves cleanly and clamps former-owner health")
+	_check(CampaignRules.buy_upgrade(campaign) and campaign.upgrade_tier == 1 and campaign.roster.all(func(crew: CrewState) -> bool: return crew.upgrade_health_bonus == 2), "Single upgrade tier applies its authored campaign-wide health bonus")
+	_check(not CampaignRules.buy_upgrade(campaign), "Upgrade reward cannot be purchased twice")
+	var roster_before: int = campaign.roster.size()
+	_check(CampaignRules.recruit_free(campaign, ContentCatalogue.MEDIC) != null and campaign.roster.size() == roster_before + 1, "Basic recruitment is free")
+	var expedition: ExpeditionState = CampaignRules.deploy(campaign)
+	_check(expedition != null and expedition.crew.size() == 4 and campaign.active_expedition == expedition, "Prepared party deploys with the same persistent crew records")
+	_check(campaign.starting_cells == 0 and expedition.inventory.stacks[0].quantity == 2, "Purchased supplies transfer to one expedition instead of duplicating between deployments")
+	_check(not CampaignRules.toggle_party(campaign, campaign.party_ids[0]) and CampaignRules.recruit_free(campaign, ContentCatalogue.BREACHER) == null, "Roster cannot change during an active expedition")
+	expedition.inventory.add(preload("res://content/items/scrap.tres"), 9)
+	expedition.inventory.add(preload("res://content/items/wafer.tres"), 3)
+	var salvage_before: int = campaign.salvage
+	_check(CampaignRules.complete_expedition(campaign, &"retreat") and campaign.salvage == salvage_before + 4 and campaign.data_wafers == 1, "Guaranteed retreat forfeits half each recovered reward using integer floor")
+	_check(not CampaignRules.complete_expedition(campaign, &"retreat"), "Expedition rewards apply once")
+	campaign.starting_cells = 1
+	expedition = CampaignRules.deploy(campaign)
+	expedition.inventory.add(preload("res://content/items/scrap.tres"), 6)
+	expedition.inventory.add(preload("res://content/items/wafer.tres"), 2)
+	expedition.boss_cleared = true
+	salvage_before = campaign.salvage
+	var data_before: int = campaign.data_wafers
+	_check(CampaignRules.complete_expedition(campaign, &"success") and campaign.salvage == salvage_before + 6 and campaign.data_wafers == data_before + 2, "Boss extraction returns full rewards")
+	expedition = CampaignRules.deploy(campaign)
+	for deployed: CrewState in expedition.crew:
+		deployed.dead = true
+		deployed.health = 0
+	expedition.failed = true
+	_check(CampaignRules.complete_expedition(campaign, &"defeat") and campaign.party_ids.is_empty(), "Party defeat permanently removes dead crew from selection")
+	var replacement: CrewState = CampaignRules.recruit_free(campaign, ContentCatalogue.BREACHER)
+	_check(replacement != null and replacement.upgrade_health_bonus == 2 and CampaignRules.toggle_party(campaign, replacement.id), "Free upgraded recruitment keeps a campaign playable after total party loss")
 
 
 func _cargo_count(state: ExpeditionState) -> int:
