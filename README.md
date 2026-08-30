@@ -1,8 +1,8 @@
 # Hollow Signal
 
-Milestone 7 is implemented locally: an eight-person persistent roster, party preparation, supplies, six modules, recovery, one upgrade tier, expedition success/retreat/defeat and repeat deployment. **Godot import, 314 rules checks, 527 headless scene checks and 754 rendered scene checks pass.** Exact commands, results and limitations are in PROGRESS.md.
+Milestones 8 and 9 are implemented locally. Saving provides validated versioned checkpoints, backup recovery and same-seed battle restart; Help is a spoiler-free mechanics reference. The new visual slice adds layered `Parallax2D` battle/corridor staging, reusable character poses, event-driven action presentation, skip and missing-animation fallback. **Godot import, 333 rules checks, 566 headless scene checks and 801 graphical Compatibility checks pass.** Exact commands, results and limitations are in PROGRESS.md.
 
-**New Game** creates the campaign and opens the salvage hub. **Deploy selected party** starts the authored expedition; the separate **Battle Test** remains available. Campaign state persists across scene changes, but closing the app loses it. Versioned disk saving arrives in milestone 8.
+**New Game** creates and saves a campaign. **Load Campaign** restores a validated checkpoint; **Recover Known-Good Backup** appears when a backup exists. **How to Play** opens the spoiler-free mechanics reference. **Deploy selected party** starts the authored expedition; the separate **Battle Test** remains available.
 
 ## Open the project in Godot
 
@@ -39,6 +39,7 @@ The engine binaries in `.tools` are deliberately not in Git. On another computer
 | Enter / Space | Activate the focused button |
 | Escape in battle test | Return to hub |
 | Escape in hub | Return to main menu |
+| Escape in Help | Return to main menu |
 | Escape in main menu | Stay in main menu; does not quit |
 | F11 | Toggle fullscreen / windowed mode |
 | Quit in main menu | Close the game |
@@ -46,6 +47,38 @@ The engine binaries in `.tools` are deliberately not in Git. On another computer
 Orange outlines show keyboard focus. The first useful button is focused on every screen. Repeated navigation requests in the same frame are ignored after the first request.
 
 The Input Map defines `ui_accept`, `ui_cancel`, and `toggle_fullscreen`. Tab and arrow navigation use Godot's native UI actions. Select an attack or Move, then click a labelled TARGET or SWAP card. Wait immediately spends the current actor's action. There are no extra combat hotkeys yet.
+
+## Exact milestone 9 playtest
+
+Use **Godot 4.7.2 Standard**, stop any older running game with **F8**, then press **F6** on `res://scenes/battle_test.tscn`.
+
+1. At 1280×720, confirm the battle strip shows distant dark hull, repeated machinery bays, a shared floor, foreground braces, four cyan crew and four rust enemies. Each figure should sit on a shadow, C3 should have a bright active ring, and the formation cards/HUD must remain sharp and fixed.
+2. Choose **Covering shot**, then click any enemy marked **TARGET**. Expected: controls lock; C3 anticipates and lunges, the target flashes/reacts, then everyone returns to formation. **Skip animation** is enabled only while this sequence is playing. Damage is already recorded by the rules.
+3. During another attack, click **Skip animation** quickly. Expected: the sequence finishes immediately, combat advances once, and the next legal turn appears. Repeated clicks must not submit another action or leave the buttons locked.
+4. Use **Vulnerability drill**, heal the downed C1 with **Field patch**, and later allow a crew member to be downed if practical. Expected: support uses a pulse pose, healing revives, and downed/death presentation never prevents the next turn or battle outcome.
+5. Return to the main menu, choose **New Game** (confirm replacement if asked), **Explore Ship**, select **Receiving**, and watch the corridor without skipping. Expected: distant, machinery and foreground strips move at visibly different speeds; the crew walk on the action plane; no vertical gap or flash appears at either horizontal edge. Let arrival complete once.
+6. Repeat steps 1–5 at 1920×1080. Expected: the HUD never shifts when an impact nudges the parallax layers, figures remain readable, and no controls or text clip.
+
+Missing-animation fallback is automatically exercised because there is no user-facing way to remove a named pose safely while the game runs. The expected internal result is immediate completion with no combat lock. No audio should play yet: milestone 9 provides sound hooks only, while audio buses/assets belong to milestone 12.
+
+## Exact milestone 8 playtest
+
+Use the pinned **Godot 4.7.2 Standard** editor. Press **F8** to stop an old run, wait for import to finish, then press **F5**.
+
+1. On the main menu, click **How to Play**. Expected: a scrollable, spoiler-free reference opens. Use the mouse wheel or drag the scrollbar through every section; no room route, boss tactic, story log or ending is revealed. Tab/arrows focus **Back to Main Menu**, Enter activates it, and Escape also returns.
+2. Click **New Game**. If a campaign file already exists, expected: a confirmation explains that New Game replaces it. Cancel preserves the old save; confirm creates eight starting crew and opens the hub.
+3. In the hub, change the party order, buy/equip something if affordable, or alter health/strain through normal play. Return to the main menu, click **Load Campaign**, and confirm those values return exactly. The status line should say the campaign validated.
+4. Deploy, travel to Receiving, and click **Engage patrol**. Take at least one action, then close the running game window or press F8. Run again and choose **Load Campaign**. Expected: the Receiving battle restarts from its entry checkpoint, so actions taken after entering are replayed; entry HP, strain, formation, power and cargo return, and the same initiative/damage seed is used.
+5. Win the restarted fight. Return to the room, then close and reopen the game and load. Expected: Receiving remains cleared and its rewards do not appear again. Retreat or extract, close/reopen, and load again: the hub report/currency remains, but the reward is not applied a second time.
+6. Lose a deployed crew member permanently, reach the next checkpoint, close/reopen and load. Expected: that individual is still DEAD and cannot be selected. Do this only if you are comfortable replacing the test campaign afterward.
+7. Confirm recovery without risking your campaign: use the main-menu backup created by successive checkpoints. **Recover Known-Good Backup** appears when one is available and loads the preceding valid checkpoint. Manual file corruption is optional; if attempted, first copy both save files elsewhere. A damaged main file must disable Load, display a clear message, and leave backup recovery available. Do not edit your only copy.
+8. Repeat the menu and Help screen at **1280×720** and **1920×1080**. Expected: all actions/status text fit; Help scrolls; keyboard focus has an orange outline. The 1280×900 command remains proportionally letterboxed.
+
+Regression check for the reported overflow error: reach **Salvage Bay**, choose **Collect cache**, and leave the hold at its explicit keep/discard decision. Expected: no autosave error appears. Close and reopen, then Load Campaign; the same pending quantities and twelve stored slots return so you can discard stored cargo or leave the incoming cargo.
+
+The normal files are `hollow_signal_save.json` and `hollow_signal_save.backup.json` in Godot's project-specific `user://` folder. Use **Editor → Open User Data Folder** to locate them; the exact Windows path can vary. Saves do not contain scene nodes or animation progress. See [SAVE_RULES.md](SAVE_RULES.md) for the data and replacement contract.
+
+If a load differs, send the main-menu status text, whether Recover Backup is visible, the checkpoint you expected, and the exact Godot Output error. Physical close/reopen and manual real-file corruption remain user checks; automated tests used isolated temporary files.
 
 ## Exact milestone 7 playtest
 
@@ -60,9 +93,9 @@ Use the pinned **Godot 4.7.2 Standard** editor. Press F8 to stop an old run, wai
 7. Restore an injured survivor to full health for **FREE**. Treat strained crew for 5 salvage per 30 strain. Shaken remains at 50 and clears below 50. Change the party/ranks, buy supplies if affordable and deploy again.
 8. On another run, reach and defeat the Signal core placeholder, then click **Extract success**. Expected: the hub returns all carried scrap and data once. At 30 salvage, buy the one-tier +2 maximum-health upgrade; it cannot be bought twice and applies to future recruits.
 9. In a fresh run, Wait until the deployed party is defeated. Expected: all four remain visible as DEAD and cannot be selected. Recruit four basic crew for free, add them to the party, restore health for free if needed, and deploy again. Dead crew never become selectable.
-10. Repeat the hub at 1280×720 and 1920×1080. Check that roster cards, management controls, module descriptions, footer and focus outline remain visible. Close and reopen the application only to confirm the current limitation: milestone 7 does **not** restore the campaign from disk.
+10. Repeat the hub at 1280×720 and 1920×1080. Check that roster cards, management controls, module descriptions, footer and focus outline remain visible. Milestone 8 now restores this campaign from disk at its latest safe checkpoint.
 
-If any step differs, send the current screen, selected crew, party count, salvage/cell totals and exact Godot error. Do not proceed to milestone 8 until the return loop works for you.
+If any step differs, send the current screen, selected crew, party count, salvage/cell totals and exact Godot error.
 
 ## Historical milestone 6 exploration playtest
 
@@ -77,7 +110,7 @@ Use **Godot 4.7.2 Standard**. Import and automated checks now pass; the followin
 7. Continue to **Pressure breach**. **Search / +12 strain** gives its cargo once and adds 12 strain to every surviving crew member. **Seal / no loot** instead resolves it without strain or loot. Revisit: neither option may regenerate the event. A separate fresh expedition is needed to try the other choice.
 8. Backtrack to **Junction → Safe room**. **Rest once** restores **12 HP** and reduces **30 strain**, with normal caps; it never revives dead crew. Repeated visits give no second rest. Continue through **Containment → Signal core**, winning each encounter. Expected: the single Relay Bulwark boss placeholder can be cleared and the summary says **BOSS PLACEHOLDER CLEARED**; milestone 7 now allows full-reward extraction.
 9. In a separate fresh expedition, Wait through a fight to lose. Expected: all deployed crew are lost and the campaign returns to the hub; milestone 7's free recruits allow rebuilding.
-10. Repeat at **1280×720** and **1920×1080**. Check room links, room choices, all twelve inventory slots, overflow text, confirmation dialog, battle Return to room, and keyboard focus. **F11** remains fullscreen. Campaign data persists between scenes but not after closing the app.
+10. Repeat at **1280×720** and **1920×1080**. Check room links, room choices, all twelve inventory slots, overflow text, confirmation dialog, battle Return to room, and keyboard focus. **F11** remains fullscreen. Milestone 8 persists campaign data at documented safe checkpoints.
 
 The main route is **Airlock → Receiving → Junction → Safe room → Containment → Signal core**. The optional branch is **Junction → Salvage bay → Pressure breach**. Room Resources live in `res://content/rooms/`, with the explicit graph in `res://content/ship.tres`. See EXPLORATION_RULES.md for ownership and transaction rules.
 
@@ -157,7 +190,7 @@ Run one command at a time from the project folder in PowerShell. Close the game 
 & '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64.exe' --path . --resolution 1280x900
 ```
 
-At **1280×720** and **1920×1080**, visit all three screens and finish both a victory and defeat: every button, health label, outcome, log, and footer should fit and be readable. At **1280×900**, the game should retain its proportions, with black bars above and below. Dragging the window edges should not stretch the figures or text.
+At **1280×720** and **1920×1080**, visit the menu, Help, hub, exploration and battle screens and finish both a victory and defeat: every button, health label, outcome, log, and footer should fit and be readable. At **1280×900**, the game should retain its proportions, with black bars above and below. Dragging the window edges should not stretch the figures or text.
 
 The design canvas is 1920×1080; the default window is 1280×720. `canvas_items` stretch scales the interface, and `keep` preserves its aspect ratio. The minimum window is 960×540, although the acceptance targets are 720p and 1080p. See [Godot's resolution documentation](https://docs.godotengine.org/en/stable/tutorials/rendering/multiple_resolutions.html).
 
@@ -168,13 +201,13 @@ The design canvas is 1920×1080; the default window is 1280×720. `canvas_items`
 | Scene | A saved tree of objects. `main_menu.tscn`, `hub.tscn`, and `battle_test.tscn` each describe one screen. |
 | Node | One object in that tree. A `Label` displays text, a `Button` receives input, and a `Control` supplies a UI rectangle. |
 | Container | A node that arranges children. `VBoxContainer` stacks them vertically; `HBoxContainer` puts them side by side; `MarginContainer` adds padding. |
-| Script | Typed GDScript that adds behaviour. `screen_navigation.gd` changes screens; `combat_rules.gd` resolves actions; `placeholder_stage.gd` only draws original geometric placeholders. |
-| Signal | A notification. A target card emits `pressed`; the screen submits the selected ability and target as a command. The controller emits `events_resolved`, and the screen displays the resulting damage text. |
+| Script | Typed GDScript that adds behaviour. `screen_navigation.gd` changes screens; `combat_rules.gd` resolves actions; `battle_stage.gd` presents already-resolved events. |
+| Signal | A notification. A target card emits `pressed`; the screen submits the selected ability and target as a command. The controller emits `events_resolved`; the stage presents those snapshots and emits `presentation_finished` so the controller can advance. |
 | Resource | Reusable authored data. `breacher.tres` holds maximum health, Speed, and ability references; ability `.tres` files hold damage, ranks, use limits and ordered effects, while `prototype_theme.tres` holds visual styles. Neither stores the changing health of a particular actor. |
 
 To see a signal, open `main_menu.tscn`, select the **NewGame** button, and inspect its **Signals** list. Its `pressed` connection goes to the scene's root. To change a label, select the Label node and edit its **Text** property in the Inspector.
 
-The battle owns its controller, enemy-delay Timer and in-memory ExpeditionState. There are no autoloads or campaign services yet. The Timer pauses briefly before each enemy action, but does not calculate damage. The rule objects and crew records are `RefCounted` objects, not scene nodes, so the rules can run in tests without loading a battle scene.
+The battle owns its controller and enemy-delay Timer. `CampaignService` owns the live campaign and `SaveService` owns the JSON file store; battle-specific objects remain inside the battle scene. The Timer pauses briefly before each enemy action, but does not calculate damage. Rule objects and runtime records are `RefCounted` objects, not scene nodes, so rules and save validation can run without loading a battle scene.
 
 ### Change actor values in the Inspector
 
@@ -224,10 +257,10 @@ Automated inputs are simulated inside Godot. The recorded rendering checks used 
 ## Files and Git
 
 - `SPECIFICATION.md`: supplied requirements; `PROJECT_PLAN.md`: milestone scopes; `PROGRESS.md`: actual commands, results, limitations, and next steps.
-- `CAMPAIGN_RULES.md`: roster, hub economy, equipment, return outcomes and in-memory persistence contract.
+- `CAMPAIGN_RULES.md`: roster, hub economy, equipment and return outcomes; `SAVE_RULES.md`: disk checkpoint, validation and recovery contract.
 - `COMBAT_RULES.md`: current battle contract and deferred rules.
 - `content/`: authored definitions and explicit catalogue; `combat/`, `exploration/`, and `campaign/`: runtime records and scene-independent rules.
-- `scenes/`: editable screen trees; `scripts/`: presentation/controllers; `ui/`: authored theme; `tests/`: native rules and integration checks.
+- `scenes/`: editable screen trees; `scripts/`: screen/controllers; `presentation/`: parallax, reusable puppets and action sequencing; `ui/`: authored theme; `tests/`: native rules and integration checks.
 - `.godot/`: generated cache, not source. `.tools/`: local engine. `.artifacts/`: local test output. Their contents are excluded from Git except the `.gdignore` markers that keep engine files and test output out of Godot's import scan.
 - `.uid` files are kept in Git so Godot script references remain stable.
 - All visible artwork is original rectangles, circles, and lines, with Godot's built-in font. No extracted assets, downloaded artwork, or audio is used.
@@ -236,4 +269,4 @@ The GitHub repository is [ConsumedMedia/Hollow-Signal](https://github.com/Consum
 
 After your acceptance playtest, inspect `git status`, commit intended changes, then use `git push` to upload the new commit. Saving a file alone does not upload it. Never commit credentials, engine binaries, or caches. This repository uses Windows certificate validation (`http.sslBackend=schannel`) with TLS verification enabled; no global Git settings were changed.
 
-**Next milestone, only after acceptance playtesting and when requested:** milestone 7, persistent hub and complete expedition return loop.
+**Next milestone, only after milestone 8–9 acceptance playtesting and when requested:** milestone 10, art production preparation.

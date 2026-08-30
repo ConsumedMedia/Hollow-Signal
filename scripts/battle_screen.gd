@@ -20,7 +20,10 @@ var expedition_mode: bool = false
 @onready var power_label: Label = %PowerLabel
 @onready var next_button: Button = %NextBattle
 @onready var rules_label: Label = %RulesLabel
-@onready var stage: PlaceholderStage = $Margin/Layout/Stage
+@onready var stage: BattleStage = $Margin/Layout/Stage
+@onready var skip_presentation_button: Button = %SkipPresentation
+@onready var actor_summary: Label = %SelectedActorSummary
+@onready var room_map: BattleRoomMap = %BattleRoomMap
 
 var selected_action: StringName = &""
 var _view_turn: int = -1
@@ -35,6 +38,9 @@ func _ready() -> void:
 	controller.events_resolved.connect(_present_events)
 	controller.state_changed.connect(_refresh)
 	controller.setup_failed.connect(_show_setup_error)
+	stage.presentation_finished.connect(_on_presentation_finished)
+	stage.sound_requested.connect(_on_sound_requested)
+	skip_presentation_button.pressed.connect(stage.skip_presentation)
 	strike_button.pressed.connect(_select_slot.bind(0))
 	shot_button.pressed.connect(_select_slot.bind(1))
 	third_button.pressed.connect(_select_slot.bind(2))
@@ -218,6 +224,17 @@ func _present_events(events: Array[CombatEvent]) -> void:
 				else:
 					_append_log("VICTORY. Next battle keeps survivors; Restart creates fresh crew." if event.outcome == &"victory"
 						else "DEFEAT. All deployed crew are lost. Restart creates a NEW test expedition.")
+	stage.present_events(events)
+
+
+func _on_presentation_finished() -> void:
+	controller.presentation_finished()
+	_refresh()
+
+
+func _on_sound_requested(_cue: StringName) -> void:
+	# Audio assets and buses arrive in milestone 12; this is the native hook.
+	pass
 
 
 func _append_log(message: String) -> void:
@@ -235,6 +252,7 @@ func _refresh() -> void:
 	status_label.text = "\n".join(_log_lines)
 	var state: CombatState = controller.state
 	var can_act: bool = controller.phase == BattleController.Phase.PLAYER_INPUT and _setup_error.is_empty()
+	skip_presentation_button.disabled = not stage.is_presenting()
 	(%Retreat as Button).disabled = not expedition_mode or not can_act
 	var legal: Array[ActionCommand] = []
 	if state != null:
@@ -270,7 +288,9 @@ func _refresh() -> void:
 		_refresh_slot(ActorState.Team.ENEMY, rank, legal, can_act)
 	if state == null:
 		turn_label.text = "Battle setup error"
+		actor_summary.text = "NO ACTIVE COMBATANT"
 		return
+	room_map.configure(state.expedition)
 	var balance: CombatBalance = state.balance
 	overcharge_button.text = "Overcharge %s / %d power / +%d%%" % ["ON" if overcharge_button.button_pressed else "OFF", balance.overcharge_cost, roundi((balance.overcharge_multiplier - 1.0) * 100.0)]
 	overcharge_button.tooltip_text = "Select a damaging crew ability on your turn. Power is spent only when you click a legal target; fixed Scorch ticks are unchanged."
@@ -286,11 +306,9 @@ func _refresh() -> void:
 		balance.low_power_strain, balance.power_low_threshold]
 	rules_label.text = "0 HP: DOWNED; heal to revive, further damage kills. No conscious crew: all lost.\nStrain %d: SHAKEN (−%d%% damage), clears below %d. P/X/D: Protected / Exposed / Scorch." % [
 		balance.shaken_threshold, roundi((1.0 - balance.shaken_damage_multiplier) * 100.0), balance.shaken_clear_below]
-	stage.crew_ids = state.crew_ranks.duplicate()
-	stage.enemy_ids = state.enemy_ranks.duplicate()
-	stage.active_id = state.active_actor_id
-	stage.queue_redraw()
+	stage.sync_formation(state.crew_ranks, state.enemy_ranks, state.active_actor_id, state)
 	var actor: ActorState = state.get_actor(state.active_actor_id)
+	_refresh_actor_summary(actor, state)
 	var turn_text: String = "VICTORY" if state.outcome == &"victory" else "DEFEAT"
 	if actor != null:
 		turn_text = "%s %s / Rank %d / %s" % [actor.short_name(), actor.definition.display_name, state.get_rank(actor.id),
@@ -315,6 +333,23 @@ func _refresh() -> void:
 			(%ReturnToRoom as Button).grab_focus()
 
 
+func _refresh_actor_summary(actor: ActorState, state: CombatState) -> void:
+	if actor == null:
+		actor_summary.text = "BATTLE COMPLETE / review the event log"
+		return
+	var status_names: PackedStringArray = []
+	if actor.shaken:
+		status_names.append("SHAKEN")
+	if actor.is_downed():
+		status_names.append("DOWNED")
+	for status: StatusState in actor.statuses:
+		status_names.append("%s %d" % [status.definition.display_name.to_upper(), status.remaining])
+	actor_summary.text = "%s / %s %s / RANK %d\nHP %d/%d   STRAIN %d/%d   SPEED %d   %s" % [
+		"CREW" if actor.side == ActorState.Team.CREW else "ENEMY", actor.short_name(), actor.definition.display_name.to_upper(),
+		state.get_rank(actor.id), actor.health, actor.max_health, actor.strain, state.balance.strain_max, actor.speed(),
+		"STATUS: CLEAR" if status_names.is_empty() else " / ".join(status_names)]
+
+
 func _focus_action() -> void:
 	for button: Button in [strike_button, shot_button, third_button, wait_button]:
 		if button.visible and not button.disabled:
@@ -328,7 +363,7 @@ func _refresh_slot(team: ActorState.Team, rank: int, legal: Array[ActionCommand]
 	button.disabled = true
 	button.modulate = Color.WHITE
 	if actor == null:
-		button.text = "Rank %d\nEMPTY\n—" % rank
+		button.text = "RANK %d / EMPTY\n—\nNO TARGET" % rank
 		button.tooltip_text = "No actor occupies this rank."
 		return
 	var marker: String = "ACTING" if actor.id == controller.state.active_actor_id else "Standing"
@@ -351,8 +386,8 @@ func _refresh_slot(team: ActorState.Team, rank: int, legal: Array[ActionCommand]
 		var symbol: String = ["P", "X", "D"][status.definition.kind]
 		status_labels.append("%s%d" % [symbol, status.remaining])
 		status_details.append("%s: %d turn starts left" % [status.definition.display_name, status.remaining])
-	button.text = "Rank %d / %s\n%s\nHP %d/%d | Str %d\n%s\n%s" % [rank, actor.short_name(), actor.definition.display_name,
-		actor.health, actor.max_health, actor.strain, marker, " ".join(status_labels) if not status_labels.is_empty() else "—"]
+	button.text = "R%d / %s %s\nHP %d/%d | STR %d | %s\n%s" % [rank, actor.short_name(), actor.definition.display_name,
+		actor.health, actor.max_health, actor.strain, " ".join(status_labels) if not status_labels.is_empty() else "CLEAR", marker]
 	button.tooltip_text = "%s / %s / Speed %d. %s" % [actor.short_name(), actor.definition.display_name,
 		actor.speed(), "Click to resolve the selected action." if not button.disabled else "Not a legal target for the selected action."]
 	button.tooltip_text += "\n" + "\n".join(status_details)

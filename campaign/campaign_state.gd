@@ -1,6 +1,6 @@
 class_name CampaignState
 extends RefCounted
-## Mutable campaign data. Disk serialization belongs to milestone 8.
+## Mutable campaign data. SaveCodec serializes values and authored content IDs only.
 
 var roster: Array[CrewState] = []
 var party_ids: Array[StringName] = []

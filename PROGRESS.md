@@ -1,6 +1,97 @@
 # Hollow Signal — Progress
 
-## Status — 2026-08-29
+## Status — 2026-08-29 — Milestone 9
+
+### Reference-composition adaptation — 2026-08-30
+
+With the user's approval on all three layout questions, the battle screen now follows the supplied composition references without copying their artwork or mechanics. The upper theatre remains the primary visual area; the former full-width action and information rows are consolidated below it. A compact rank strip keeps every positional target explicit. The lower-left command deck shows the active combatant's existing Hollow Signal health, strain, speed, status and legal abilities. The lower-right panel draws a read-only version of the authored eight-room ship graph; its orange current-position marker reads the same `ExpeditionState.current_room` that exploration updates, and it cannot issue travel commands.
+
+Damaging actions now enlarge and center the attacker and target, dim the remaining formation and environment, display the resolved damage amount at impact, then restore all ranks. Healing and strain-support actions focus their user and recipient. Skip Animation cancels the presentation and restores the full formation immediately. The rules still calculate damage once before presentation, and presentation uses no gameplay randomness. Original geometric placeholders remain in use.
+
+Actual adaptation commands run from `C:\Users\CRS-Workstation\Game Dev`:
+
+```powershell
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --editor --path . --quit
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m9-reference-rules.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m9-reference-smoke-complete.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m9-reference-render.log' -- --capture
+```
+
+Results: import exit 0 with no reported project errors; **333 rules checks / 0 failures / 0 engine errors**; final **571 headless scene checks / 0 failures / 0 engine errors**; **808 rendered Compatibility checks / 0 failures / 0 engine errors**. Rendered checks used OpenGL 3.3 Compatibility on an NVIDIA RTX 3080. Reviewed `battle_test_1280x720.png`, `battle_test_1920x1080.png`, and `m9_action_focus_1280x720.png`: formations, feet, shadows, route schematic, command deck and impact number are visible; the focused pair dominates the action frame. Automated checks cover the current-room map marker at both supported resolutions, active-combatant summary, viewport fit, full silhouette bounds, locked inputs during presentation, focus entry, skip restoration, missing-animation fallback and presentation-speed outcome independence. The final headless count is two higher because the moving expedition marker assertion runs at both target resolutions after the rendered suite.
+
+Not tested: the user has not yet physically judged the new composition, watched multiple normal-speed damage/support sequences, or confirmed the map marker by eye in several rooms. Static captures do not prove continuous parallax seam behavior. Audio, finished artwork, accessibility pacing settings, other GPUs and export builds remain outside this correction.
+
+Next: physically play an expedition combat at 1280×720 and 1920×1080, verify the orange marker matches the room entered, watch damage and support focus, and click Skip Animation during the close-up. Fix any reports before uploading or starting milestone 10.
+
+### Character-focus layout correction
+
+The user's 1280×720 editor screenshot showed the battle puppets cut off inside a narrow theatre strip. Cause: the vertical layout gave the stage only its old 65-pixel minimum while ability help, selected details and the event log each occupied separate full-width rows. Foreground braces also crossed character bodies. The revised screen guarantees a 220-pixel design-height theatre, enlarges puppet art by 30%, reduces formation-card typography, combines ability information and recent events into one two-column row, moves the test-only Vulnerability Drill into bottom navigation, and confines foreground framing to the outer edges. Characters are now the largest central element while targeting cards remain directly beneath them.
+
+Post-correction import, **566 headless checks / 0 failures**, and **801 graphical Compatibility checks / 0 failures** passed. Reviewed normal, downed and compacted-rank captures at 1280×720 and the normal capture at 1920×1080: full heads, bodies, feet, shadows and active rings are visible. A new regression explicitly checks that every idle puppet's authored visual bounds fit inside the clipped stage and that its design height remains at least 220 pixels. Physical animation review on the user's display remains pending.
+
+Milestone 9 is implemented locally with original geometric placeholders because no approved art or audio assets are present. The battle and corridor now use three native `Parallax2D` layers with 0.15, 0.4 and 1.15 scroll multipliers, repeatable full-width strips, grounded character shadows and restrained impact motion. The existing scalable Controls remain outside that motion, so the HUD stays fixed.
+
+`character_presentation.tscn` is a reusable native puppet with idle, walk, attack, support, hurt, downed and death states. `BattleStage` consumes immutable `CombatEvent` snapshots after `CombatRules` has resolved the result. The controller stays in `RESOLVING` until presentation acknowledges completion; the visible Skip Animation button and missing-animation fallback both acknowledge the same path. Sound cue signals exist, but no audio assets or buses were added because those belong to milestone 12. Presentation consumes no gameplay randomness and changes no combat values.
+
+Actual milestone 9 commands run from `C:\Users\CRS-Workstation\Game Dev`:
+
+```powershell
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --editor --path . --quit
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m9-rules-initial.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m9-smoke-final.log'
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tests/setup_smoke.gd --log-file 'C:/Users/CRS-Workstation/Game Dev/.artifacts/m9-render-final.log' -- --capture
+git diff --check
+```
+
+Results: final import exit 0 with no project errors; **333 rules checks / 0 failures / 0 engine errors**; **565 headless scene checks / 0 failures / 0 engine errors**; **801 graphical Compatibility checks / 0 failures / 0 engine errors**. Rendering used OpenGL 3.3 Compatibility, NVIDIA driver 591.86 and an RTX 3080. The initial import exposed a collision with Godot 4.7's native `draw_ellipse` method and was fixed. The initial scene run had 565 checks / 1 failure caused by a test closure capturing a scalar by value; the shared-marker correction passed. The first graphical run passed 801 checks but visual review showed rear layers sorted behind the screen background; raising each clipped local canvas fixed the layer order, and the full graphical suite passed again.
+
+Reviewed `battle_test_1280x720.png`, `battle_test_1920x1080.png`, `m6_corridor_1280x720.png` and `m6_corridor_1920x1080.png`. Machinery, floor, foreground braces, grounding shadows, team colors, active ring and fixed HUD are visible and unclipped at both targets. Static captures show no seam. Automated checks assert three layers, exact depth multipliers, repeat width/times, all seven poses, locked input during presentation, skip completion, missing-animation completion, fixed HUD geometry, and distinct corridor offsets. Existing pacing regression confirms identical ordered events and final combat state at different presentation timings.
+
+Not tested: the user has not physically watched a complete normal-speed sequence, tried to catch a moving parallax seam, clicked Skip Animation by hand, or judged animation feel/readability on their display. Static screenshots cannot prove continuous seam-free motion. Audio playback is intentionally absent. Approved art, animation artwork, reduced motion/combat-speed settings, other GPUs, Windows export and a machine without Godot remain outside this milestone.
+
+Next: follow the exact milestone 8 and milestone 9 README playtests, including the Salvage Bay autosave retest. Fix any reports, then create/push a combined local milestone 8–9 checkpoint only when requested. Do not begin milestone 10 without authorization.
+
+## Historical status — Milestone 8
+
+### Pending cargo autosave fix
+
+User playtesting reached Salvage Bay and reported `AUTOSAVE FAILED / Cargo item or quantity is invalid` from `_inspect()`. Cause: authored salvage queues 40 scrap while an inventory scrap stack holds 5. `pending_loot` correctly stores the unresolved remainder before `settle_loot()` distributes it, but `SaveCodec` incorrectly applied the stored-stack maximum to that pending quantity. The smallest fix keeps strict `max_stack` validation for inventory stacks and gives pending quantities a separate positive bounded validation rule. Added a regression that round-trips 40 pending scrap while the hold is full.
+
+Post-fix commands:
+
+```powershell
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --import
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/setup_smoke.gd
+```
+
+Results: import exit 0 with no errors; **333 rules checks / 0 failures / 0 engine errors**, including paired regressions that allow unresolved overflow while still rejecting an oversized stored stack; **554 headless scene checks / 0 failures**. The UI did not change, so the earlier final rendered/capture review remains applicable. User must restart the running game and repeat Salvage Bay inspection to physically confirm the reported path.
+
+Milestone 8 and the requested spoiler-free Help screen are implemented locally. The Help screen is a categorized mechanics reference with controls, hub/formation, combat/status, health/death/strain, power, exploration/cargo, equipment, outcomes and checkpoint behavior; it contains no route, boss solution, narrative log or ending spoiler.
+
+Saving now uses versioned JSON under `user://`, a verified temporary write, and a last-known-good backup. Only mutable data and authored content IDs are stored. Validation reconstructs fresh `CampaignState`, `CrewState`, `ExpeditionState`, room and inventory records before replacing live state. Encounter seeds use decimal strings to preserve integer precision. Autosaves occur at the hub and hub mutations, deployment, room/event/cargo boundaries, battle entry/resolution and expedition return. Loading a reserved encounter automatically rebuilds it from entry state with the same seed; animation progress is intentionally absent. Corrupt and unsupported main saves disable Load, do not replace live state, and expose a valid backup when present. Confirmed New Game is the explicit overwrite action. See `SAVE_RULES.md`.
+
+Actual commands run from `C:\Users\CRS-Workstation\Game Dev`:
+
+```powershell
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --import
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/setup_smoke.gd
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tests/setup_smoke.gd
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --path . --script res://tests/setup_smoke.gd -- --capture
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd -- --self-test-failure
+& '.\.tools\godot-4.7.2\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/run_tests.gd -- --self-test-script-error
+```
+
+Results before the user-reported pending-cargo fix: clean import exit 0; **331 rules checks / 0 failures / 0 engine errors**; **554 headless scene checks / 0 failures**; **556 rendered Compatibility checks / 0 failures**; **790 graphical capture checks / 0 failures**. Post-fix evidence is recorded above. The rules include explicit reload checks for permanent death and one-time expedition rewards. The scene suites exercised main-menu load, reconstruction from disk, same-seed battle-entry restart, damaged-main backup repair, unsupported-version blocking, Help navigation, input, and layouts at 1280×720, 1920×1080 and letterboxed 1280×900. The intentional assertion run reported 332 checks / 1 intended failure / exit 1; the intentional script-error run reported 331 checks / 0 assertion failures / 1 engine error / exit 1 before the added overflow regression.
+
+Visually reviewed `main_menu_1280x720.png`, `main_menu_1920x1080.png`, `help_1280x720.png` and `help_1920x1080.png`: the menu actions/status and Help headings/body/scrollbar/back control are readable without clipping. The first sandboxed import exited 0 but printed AppData permission errors, so it was rejected as clean evidence; the final permitted import above has no project or filesystem errors.
+
+Not tested: the user has not physically closed and relaunched the game, manually corrupted their real save, or confirmed mouse-wheel/keyboard scrolling in the editor. Tests use isolated temporary save filenames and clean them up; they do not touch the normal campaign slot. Windows export, other hardware, cloud synchronization and forward migration from future save versions remain outside milestone 8.
+
+Next: complete the exact README milestone 8 playtest, fix any reports, then create and push the milestone 8 Git checkpoint when requested/accepted. Do not begin milestone 9 without authorization.
+
+## Historical status — milestone 7 before its upload
 
 Milestone 7 is implemented locally and automatically verified. It adds the persistent in-memory hub and complete prepare/deploy/return loop without disk saving. User acceptance and a Git checkpoint are pending. Milestones 8–13 remain unauthorized.
 
@@ -595,7 +686,7 @@ Result: exit code 0; 13 milestone headings and 13 not-started statuses; exactly 
 - Milestone 4 received general user playtest acceptance. Individual physical keyboard/mouse, editor F5/F6/F8, display/DPI readability and tactical balance checks were not separately reported; automated GUI input and native screenshots do not establish those results.
 - Only this machine's NVIDIA Compatibility renderer was exercised. No Windows export or other hardware testing; exports remain milestone 13.
 - The first M4 import exited 1 without a printed project error; the final import passed. The same intermittent behavior occurred during earlier milestones. Cause remains unconfirmed; keep the log if it recurs.
-- M7 adds the in-memory campaign loop. Disk persistence, audio and later presentation work are not implemented. Current verification and remaining manual checks are recorded at the top of this document.
+- M8 now adds disk persistence to M7's campaign loop. Audio and later presentation work are not implemented. Current verification and remaining manual checks are recorded at the top of this document.
 - The first M6 rendered run had four window/capture dimension assertion failures; the final repeat passed without a layout change. Cause is unconfirmed; retain logs if this recurs.
 - Determinism requires the same content, seed, commands, and pinned engine. Cross-version replay/save compatibility is not claimed.
 - Milestones 5–6 and the room Resource/focus fix were uploaded and verified at `b5074db`; see the submission record above. Godot binaries and verification artifacts are deliberately not uploaded.
@@ -604,4 +695,4 @@ Result: exit code 0; 13 milestone headings and 13 not-started statuses; exactly 
 
 1. User completes the README milestone 7 playtest; fix any reported failure before a checkpoint or further milestone.
 2. After acceptance, review and upload the intended milestone 7 files only if requested.
-3. Start milestone 8 only when requested. Milestones 8–13 remain out of scope.
+3. Complete the milestone 8 physical playtest and fix reports. Start milestone 9 only when requested; milestones 9–13 remain out of scope.

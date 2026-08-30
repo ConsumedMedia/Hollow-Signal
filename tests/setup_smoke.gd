@@ -6,6 +6,7 @@ const ErrorMonitor = preload("res://tests/engine_error_monitor.gd")
 const MENU: String = "res://scenes/main_menu.tscn"
 const HUB: String = "res://scenes/hub.tscn"
 const BATTLE: String = "res://scenes/battle_test.tscn"
+const HELP: String = "res://scenes/help.tscn"
 
 var _failures: int = 0
 var _checks: int = 0
@@ -18,6 +19,9 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	var test_store: SaveStore = SaveStore.new("user://hollow_signal_setup_test")
+	test_store.delete_all()
+	root.get_node("SaveService").set("store", test_store)
 	create_timer(120.0).timeout.connect(func() -> void:
 		printerr("SETUP SMOKE: timed out before completion")
 		quit(1))
@@ -33,12 +37,14 @@ func _run() -> void:
 	# Exercise each scene at both acceptance resolutions and a non-16:9 size.
 	for window_size: Vector2i in [Vector2i(1280, 720), Vector2i(1920, 1080), Vector2i(1280, 900)]:
 		root.size = window_size
-		for scene_path: String in [MENU, HUB, BATTLE]:
+		for scene_path: String in [MENU, HUB, BATTLE, HELP]:
 			await _open(scene_path)
 			_check_layout(scene_path, window_size)
 			if "--capture" in OS.get_cmdline_user_args():
 				await _capture(scene_path, window_size)
 
+	test_store.delete_all()
+	root.get_node("CampaignService").set("state", null)
 	await _open(MENU)
 	var new_game: Button = current_scene.get_node("%NewGame") as Button
 	new_game.pressed.emit()
@@ -62,6 +68,12 @@ func _run() -> void:
 	(current_scene.get_node("%MainMenu") as Button).pressed.emit()
 	await _settle()
 	_check(current_scene.scene_file_path == MENU, "Battle main menu button works")
+	(current_scene.get_node("%Help") as Button).pressed.emit()
+	await _settle()
+	_check(current_scene.scene_file_path == HELP and (current_scene.get_node("%Reference") as RichTextLabel).text.contains("POWER AND OVERCHARGE"), "Menu opens the spoiler-free mechanics reference")
+	(current_scene.get_node("%Back") as Button).pressed.emit()
+	await _settle()
+	_check(current_scene.scene_file_path == MENU, "Help returns to the main menu")
 
 	await _open(BATTLE)
 	await _press_key(KEY_ESCAPE)
@@ -71,15 +83,18 @@ func _run() -> void:
 	await _press_key(KEY_ESCAPE)
 	_check(current_scene.scene_file_path == MENU, "Escape at menu does not quit")
 	await _press_key(KEY_ENTER)
-	_check(current_scene.scene_file_path == HUB, "Enter activates the initially focused New Game button")
+	_check(current_scene.scene_file_path == MENU and (current_scene.get_node("%NewGameConfirmation") as ConfirmationDialog).visible, "Enter activates New Game and requires replacement confirmation")
+	(current_scene.get_node("%NewGameConfirmation") as ConfirmationDialog).confirmed.emit()
+	await _settle()
+	_check(current_scene.scene_file_path == HUB, "Confirmed keyboard New Game opens the hub")
 	await _open(MENU)
 	await _press_key(KEY_TAB)
-	_check(root.gui_get_focus_owner() == current_scene.get_node("%BattleTest"), "Tab advances focus")
+	_check(root.gui_get_focus_owner() == current_scene.get_node("%LoadGame"), "Tab advances focus to available Load Campaign")
 	await _press_key(KEY_TAB, true)
 	_check(root.gui_get_focus_owner() == current_scene.get_node("%NewGame"), "Shift+Tab returns focus")
 	await _press_key(KEY_DOWN)
-	_check(root.gui_get_focus_owner() == current_scene.get_node("%BattleTest"), "Arrow key advances focus")
-	await _click_button(current_scene.get_node("%NewGame") as Button)
+	_check(root.gui_get_focus_owner() == current_scene.get_node("%LoadGame"), "Arrow key advances focus to available Load Campaign")
+	await _start_new_game()
 	_check(current_scene.scene_file_path == HUB, "Mouse input reaches New Game through the GUI")
 	if DisplayServer.get_name() != "headless":
 		await _press_key(KEY_F11)
@@ -93,8 +108,11 @@ func _run() -> void:
 	await _test_manual_opening()
 	await _test_drill_opening()
 	await _test_vulnerability_ui()
+	await _test_presentation_ui()
 	await _test_campaign_ui()
 	await _test_exploration_ui()
+	await _test_save_ui()
+	test_store.delete_all()
 	_check(_monitor.error_count() == 0, "No engine errors during scene checks")
 	# Optional negative self-test proves this runner exits unsuccessfully.
 	if "--self-test-failure" in OS.get_cmdline_user_args():
@@ -103,10 +121,96 @@ func _run() -> void:
 	quit(1 if _failures > 0 else 0)
 
 
+func _test_presentation_ui() -> void:
+	root.size = Vector2i(1280, 720)
+	await _open(BATTLE, false)
+	var controller: BattleController = current_scene.get_node("BattleController") as BattleController
+	controller.enemy_timer.wait_time = 0.4
+	var stage: BattleStage = current_scene.get_node("Margin/Layout/Stage") as BattleStage
+	var room_map: BattleRoomMap = current_scene.get_node("%BattleRoomMap") as BattleRoomMap
+	_check(room_map != null and room_map.expedition == controller.state.expedition
+		and room_map.displayed_room_id() == ContentCatalogue.SHIP.entry_id,
+		"Combat HUD shows a read-only authored ship route and current position")
+	_check("HP " in (current_scene.get_node("%SelectedActorSummary") as Label).text
+		and "STRAIN " in (current_scene.get_node("%SelectedActorSummary") as Label).text,
+		"Lower command deck summarizes the active combatant using existing Hollow Signal rules")
+	var parallax_nodes: Array[Node] = stage.find_children("*", "Parallax2D", true, false)
+	_check(parallax_nodes.size() == 3, "Battle example has distant, machinery and foreground Parallax2D layers")
+	var repeat_ok: bool = true
+	var scales: Array[Vector2] = []
+	for node: Node in parallax_nodes:
+		var layer: Parallax2D = node as Parallax2D
+		repeat_ok = repeat_ok and is_equal_approx(layer.repeat_size.x, stage.size.x) and layer.repeat_times >= 3
+		scales.append(layer.scroll_scale)
+	_check(repeat_ok and Vector2(0.15, 0.15) in scales and Vector2(0.4, 0.4) in scales and Vector2(1.15, 1.15) in scales,
+		"Battle parallax strips repeat at the viewport edge with the authored depth multipliers")
+	var puppets: int = 0
+	var puppets_inside_stage: bool = true
+	for child: Node in stage.get_children():
+		if child is CharacterPresentation:
+			puppets += 1
+			puppets_inside_stage = puppets_inside_stage and Rect2(Vector2.ZERO, stage.size).encloses(
+				(child as CharacterPresentation).visual_rect_in_parent())
+	_check(puppets == 8 and CharacterPresentation.POSES == [&"idle", &"walk", &"attack", &"support", &"hurt", &"downed", &"death"],
+		"Reusable character presentation exposes all seven required states and stages both parties")
+	_check(stage.size.y >= 220.0 and puppets_inside_stage,
+		"All full character silhouettes fit inside the enlarged clipped battle theatre")
+	var hud_rect: Rect2 = (current_scene.get_node("%TurnLabel") as Label).get_global_rect()
+	stage.call("_impact_scroll")
+	await process_frame
+	_check((current_scene.get_node("%TurnLabel") as Label).get_global_rect() == hud_rect,
+		"Battle camera/parallax motion leaves the scalable HUD fixed")
+
+	await _await_player(controller)
+	stage.animation_scale = 4.0
+	var command: ActionCommand = _first_attack(controller.state)
+	_check(command != null and controller.submit_player_action(command.action_id,
+		command.target_ids[0] if not command.target_ids.is_empty() else &"", command.expected_turn, command.overcharge),
+		"A legal action enters the presentation sequence after rules resolve")
+	_check(controller.phase == BattleController.Phase.RESOLVING and stage.is_presenting()
+		and not (current_scene.get_node("%SkipPresentation") as Button).disabled,
+		"Actions remain locked and Skip Animation becomes available during presentation")
+	await create_timer(0.12).timeout
+	_check(stage.is_focused(), "Damaging actions temporarily focus the acting and targeted characters")
+	if "--capture" in OS.get_cmdline_user_args():
+		# At the deliberately slow test scale this lands during the impact popup.
+		await create_timer(1.05).timeout
+		await _capture(BATTLE, Vector2i(root.size), "m9_action_focus")
+	(current_scene.get_node("%SkipPresentation") as Button).pressed.emit()
+	await _settle()
+	_check(not stage.is_presenting() and not stage.is_focused() and controller.phase != BattleController.Phase.RESOLVING,
+		"Skipping presentation restores the full formation and acknowledges the resolved action without locking combat")
+
+	var fallback_marker: Dictionary = {"finished": false}
+	stage.presentation_finished.connect(func() -> void: fallback_marker.finished = true, CONNECT_ONE_SHOT)
+	stage.play_missing_animation_for_test()
+	await _settle()
+	_check(fallback_marker.finished and not stage.is_presenting(),
+		"Missing animation falls back immediately and completes its presentation sequence")
+
+	var corridor := CorridorView.new()
+	corridor.size = Vector2(960.0, 180.0)
+	current_scene.add_child(corridor)
+	await process_frame
+	var corridor_layers: Array[Node] = corridor.find_children("*", "Parallax2D", true, false)
+	var corridor_repeat_ok: bool = corridor_layers.size() == 3
+	for node: Node in corridor_layers:
+		var layer: Parallax2D = node as Parallax2D
+		corridor_repeat_ok = corridor_repeat_ok and is_equal_approx(layer.repeat_size.x, corridor.size.x) and layer.repeat_times >= 3
+	_check(corridor_repeat_ok, "Corridor uses three edge-matched repeating Parallax2D strips")
+	corridor.begin(0.2)
+	await create_timer(0.05).timeout
+	var offsets_differ: bool = corridor_layers.size() == 3 \
+		and not is_equal_approx((corridor_layers[0] as Parallax2D).scroll_offset.x, (corridor_layers[2] as Parallax2D).scroll_offset.x)
+	corridor.finish()
+	_check(offsets_differ and not corridor.visible, "Corridor layers move at different depths and skip uses the normal finish path")
+	corridor.queue_free()
+
+
 func _test_campaign_ui() -> void:
 	root.size = Vector2i(1280, 720)
 	await _open(MENU)
-	await _click_button(current_scene.get_node("%NewGame") as Button)
+	await _start_new_game()
 	var service: Node = root.get_node("CampaignService")
 	var campaign: CampaignState = service.get("state") as CampaignState
 	var roster: GridContainer = current_scene.get_node("%RosterGrid") as GridContainer
@@ -126,6 +230,55 @@ func _test_campaign_ui() -> void:
 	_check(current_scene.scene_file_path == HUB and campaign.active_expedition == null, "Guaranteed room retreat returns to the persistent hub")
 	_check((current_scene.get_node("%Report") as Label).text.contains("Retreat"), "Hub reports the expedition outcome once")
 	_check_layout(HUB, Vector2i(1280, 720))
+
+
+func _test_save_ui() -> void:
+	var service: Node = root.get_node("SaveService")
+	var store: SaveStore = service.get("store") as SaveStore
+	store.delete_all()
+	root.get_node("CampaignService").set("state", null)
+	await _open(MENU)
+	await _start_new_game()
+	var campaign: CampaignState = root.get_node("CampaignService").get("state") as CampaignState
+	campaign.salvage = 41
+	_check(service.call("save_campaign", campaign).ok, "Hub campaign checkpoint can be written through the application service")
+	campaign.salvage = 999
+	await _open(MENU)
+	await _click_button(current_scene.get_node("%LoadGame") as Button)
+	campaign = root.get_node("CampaignService").get("state") as CampaignState
+	_check(current_scene.scene_file_path == HUB and campaign.salvage == 41, "Load Campaign replaces live state only with the validated checkpoint")
+	var expedition: ExpeditionState = CampaignRules.deploy(campaign, 7000)
+	ExpeditionRules.begin_travel(expedition, &"receiving")
+	ExpeditionRules.arrive(expedition)
+	var room: RoomDefinition = ExpeditionRules.begin_encounter(expedition)
+	var expected_seed: int = expedition.rooms[room.id].encounter_seed
+	var expected_health: int = expedition.crew[0].health
+	_check(service.call("save_campaign", campaign).ok, "Battle entry checkpoint is written before combat state exists")
+	expedition.crew[0].health = 1
+	await _open(MENU)
+	await _click_button(current_scene.get_node("%LoadGame") as Button)
+	await _settle()
+	campaign = root.get_node("CampaignService").get("state") as CampaignState
+	var expedition_screen: Control = current_scene
+	var resumed_battle: Control = expedition_screen.get("battle") as Control
+	var resumed_controller: BattleController = resumed_battle.get_node("BattleController") as BattleController if resumed_battle != null else null
+	_check(current_scene.scene_file_path == "res://scenes/expedition.tscn" and resumed_battle != null, "Loading a battle-entry checkpoint automatically restarts the encounter")
+	_check(campaign.active_expedition.crew[0].health == expected_health and resumed_controller != null and resumed_controller.battle_seed == expected_seed, "Restarted encounter restores entry health and the same seed")
+	var damaged: FileAccess = FileAccess.open(store.main_path, FileAccess.WRITE)
+	damaged.store_string("{ damaged")
+	damaged.close()
+	await _open(MENU)
+	_check((current_scene.get_node("%LoadGame") as Button).disabled and not (current_scene.get_node("%RecoverBackup") as Button).disabled, "Damaged main checkpoint disables Load and offers the known-good backup")
+	await _click_button(current_scene.get_node("%RecoverBackup") as Button)
+	_check(current_scene.scene_file_path in [HUB, "res://scenes/expedition.tscn"] and store.inspect().main.ok, "Backup recovery repairs the main slot and opens its validated campaign checkpoint")
+	store.delete_all()
+	var unsupported: Dictionary = SaveCodec.encode(CampaignRules.create_campaign())
+	unsupported.version = 999
+	var unsupported_file: FileAccess = FileAccess.open(store.main_path, FileAccess.WRITE)
+	unsupported_file.store_string(JSON.stringify(unsupported))
+	unsupported_file.close()
+	await _open(MENU)
+	_check((current_scene.get_node("%LoadGame") as Button).disabled and (current_scene.get_node("%SaveStatus") as Label).text.contains("unsupported"), "Unsupported save is reported and cannot be loaded or silently overwritten")
 
 
 func _test_exploration_ui() -> void:
@@ -153,6 +306,8 @@ func _test_exploration_ui() -> void:
 		var controller: BattleController = battle_view.get_node("BattleController") as BattleController
 		controller.enemy_timer.wait_time = 0.001
 		_check(controller.expedition == state and controller.state.crew_ranks.size() == 4, "Embedded battle uses the same expedition object")
+		_check((battle_view.get_node("%BattleRoomMap") as BattleRoomMap).displayed_room_id() == &"receiving",
+			"Combat route marker follows the party into the current expedition room")
 		_check(not (battle_view.get_node("%Restart") as Button).visible and not (battle_view.get_node("%NextBattle") as Button).visible, "Expedition combat hides fresh/reset test controls")
 		_check((battle_view.get_node("%ReturnToRoom") as Button).disabled, "Cannot leave an unresolved expedition fight")
 		for action: int in range(250):
@@ -737,6 +892,8 @@ func _open(scene_path: String, legacy_fixture: bool = true) -> void:
 	var result: Error = change_scene_to_file(scene_path)
 	_check(result == OK, "Load %s" % scene_path)
 	await _settle()
+	if scene_path == BATTLE:
+		(current_scene.get_node("Margin/Layout/Stage") as BattleStage).animation_scale = 0.01
 	if scene_path == BATTLE and legacy_fixture:
 		# Preserve M3 regressions against their original two-skill content.
 		var controller: BattleController = current_scene.get_node("BattleController") as BattleController
@@ -786,6 +943,15 @@ func _click_button(button: Button) -> void:
 	await _settle()
 
 
+func _start_new_game() -> void:
+	await _click_button(current_scene.get_node("%NewGame") as Button)
+	if current_scene != null and current_scene.scene_file_path == MENU:
+		var dialog: ConfirmationDialog = current_scene.get_node("%NewGameConfirmation") as ConfirmationDialog
+		_check(dialog.visible, "Existing campaign requires New Game confirmation")
+		dialog.confirmed.emit()
+		await _settle()
+
+
 func _capture(scene_path: String, window_size: Vector2i, artifact_name: String = "") -> void:
 	if DisplayServer.get_name() == "headless":
 		_check(false, "Screenshots require a graphical rendering run, not --headless")
@@ -809,6 +975,15 @@ func _check_layout(scene_path: String, window_size: Vector2i) -> void:
 	for node: Node in current_scene.find_children("*", "Control", true, false):
 		var control: Control = node as Control
 		if not control.is_visible_in_tree():
+			continue
+		var ancestor: Node = control.get_parent()
+		var inside_scroll: bool = false
+		while ancestor != null and ancestor != current_scene:
+			if ancestor is ScrollContainer:
+				inside_scroll = true
+				break
+			ancestor = ancestor.get_parent()
+		if inside_scroll:
 			continue
 		if not viewport_rect.encloses(control.get_global_rect()):
 			layout_ok = false

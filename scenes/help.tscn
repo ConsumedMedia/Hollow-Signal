@@ -1,0 +1,68 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/help_screen.gd" id="1"]
+[ext_resource type="Theme" path="res://ui/prototype_theme.tres" id="2"]
+
+[node name="Help" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2")
+script = ExtResource("1")
+initial_focus = NodePath("Margin/Layout/Back")
+back_scene = "res://scenes/main_menu.tscn"
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.035, 0.051, 0.075, 1)
+mouse_filter = 2
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 72
+theme_override_constants/margin_top = 36
+theme_override_constants/margin_right = 72
+theme_override_constants/margin_bottom = 36
+
+[node name="Layout" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Header" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.47, 0.84, 0.85, 1)
+theme_override_font_sizes/font_size = 28
+text = "HOLLOW SIGNAL / HOW TO PLAY"
+
+[node name="Subtitle" type="Label" parent="Margin/Layout"]
+layout_mode = 2
+text = "Spoiler-free reference — scroll to read. Important colors are also named in text."
+
+[node name="Scroll" type="ScrollContainer" parent="Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Reference" type="RichTextLabel" parent="Margin/Layout/Scroll"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(1650, 1450)
+layout_mode = 2
+size_flags_horizontal = 3
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+text = "[font_size=32][color=#78d6d9]GOAL AND CAMPAIGN[/color][/font_size]\nPrepare four crew at the hub, explore the derelict, survive encounters, complete the expedition objective, and extract. Crew health, strain, equipment, and permanent deaths persist through the campaign. New Game replaces the current campaign. Save/load details appear on the main menu.\n\n[font_size=32][color=#78d6d9]CONTROLS[/color][/font_size]\nLeft click selects and activates. Tab and Shift+Tab move focus; arrow keys also navigate; Enter or Space activates the focused control. Escape returns to the previous safe screen where allowed. F11 toggles fullscreen. Orange outlines show keyboard focus.\n\n[font_size=32][color=#78d6d9]HUB AND PARTY[/color][/font_size]\nSelect exactly four living crew before deployment. Their listed RANK 1–4 is their starting combat order: rank 1 is closest to enemies. Add/remove changes the active party; Rank forward/back swaps adjacent positions. Free basic recruitment and free full-health restoration prevent an unwinnable campaign. Strain treatment costs salvage.\n\n[font_size=32][color=#78d6d9]COMBAT TURNS AND FORMATION[/color][/font_size]\nEach conscious actor acts once per round. Initiative is Speed plus a seeded 1–6 roll; actor ID breaks ties. The top line names the acting character. An ability button belongs to that actor's class. Abilities show required actor ranks and target ranks; disabled text explains why a skill cannot be used. Select a skill, then a legal TARGET. Wait is always legal. Move swaps with an adjacent ally and consumes the turn. Death removes the actor and ranks close up.\n\n[font_size=32][color=#78d6d9]DAMAGE, SUPPORT, AND STATUSES[/color][/font_size]\nLegal attacks hit automatically and roll their displayed damage range. There is no accuracy, dodge, or critical-hit roll. Field patch has two uses per battle. P means Protected, X means Exposed, and D means Scorch. Status counters decrease at that actor's turn start; Scorch deals damage first. Protection reduces damage, Exposed enables the Ranger's stronger signal attack, and forced movement changes formation without changing turn order.\n\n[font_size=32][color=#78d6d9]HEALTH, DEATH, AND STRAIN[/color][/font_size]\nAt 0 HP, crew are DOWNED: they cannot act, healing revives them, and any later positive damage kills them permanently. Downed survivors recover to 1 HP after victory. If no conscious crew remain, the expedition is defeated and all deployed crew are lost. Strain ranges from 0–100 and persists. At 100, SHAKEN reduces damage by 25%; it clears only below 50.\n\n[font_size=32][color=#78d6d9]POWER AND OVERCHARGE[/color][/font_size]\nThe expedition shares one power supply. Corridors cost 5 power. Room entry adds 0 strain at 50+ power, 2 at 25–49, and 5 below 25. A power cell restores 25 outside combat, capped at 100. Overcharge costs 10 power and raises a damaging crew ability by 50%. It cannot spend unavailable power. Zero power adds pressure but does not end the expedition.\n\n[font_size=32][color=#78d6d9]EXPLORATION AND CARGO[/color][/font_size]\nChoose only connected rooms. Corridors are presentation, not platforming; Skip reaches the same rule result. Room events and combat rewards resolve once, while backtracking still costs power. Cargo has twelve slots with item stacking. If full, explicitly discard a stored stack to make room or leave incoming cargo; nothing is silently lost. Resolve pending cargo before travel. Safe-room recovery and hazard choices state their costs before confirmation.\n\n[font_size=32][color=#78d6d9]MODULES, SUPPLIES, AND UPGRADES[/color][/font_size]\nSalvage buys strain care, power cells, six modules, and one upgrade tier. Each module can be owned once and equipped by one crew member; moving it removes it from the prior owner. The module description states its health, Speed, damage, healing, strain-relief, or starting-power effect. Stored supply cells transfer to the next expedition and are consumed from hub stores.\n\n[font_size=32][color=#78d6d9]VICTORY, RETREAT, AND DEFEAT[/color][/font_size]\nExtract after completing the expedition objective to return all carried salvage and data. Retreat is guaranteed on a conscious crew turn or from a safe room state; it returns half of each reward, rounded down. Defeat returns no cargo and preserves permanent deaths. Expedition rewards apply once. Return to the hub, recover, change the party, and deploy again.\n\n[font_size=32][color=#78d6d9]SAVING[/color][/font_size]\nThe campaign uses one automatic save slot plus a known-good backup. Saves occur at safe campaign checkpoints, room boundaries, battle entry, and battle resolution. Loading during a battle restarts that encounter from its entry checkpoint with the same seed; animation progress is never saved. A damaged or incompatible save is reported instead of silently replacing live state."
+
+[node name="Back" type="Button" parent="Margin/Layout"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Back to Main Menu"

@@ -30,43 +30,58 @@ func _ready() -> void:
 	(%BuyUpgrade as Button).pressed.connect(_buy_upgrade)
 	(%Deploy as Button).pressed.connect(_deploy)
 	_refresh()
+	_checkpoint()
 
 func _select_crew(crew_id: StringName) -> void:
 	selected_crew = crew_id
 	_refresh()
 
 func _toggle_party() -> void:
-	if CampaignRules.toggle_party(campaign, selected_crew): _refresh()
+	if CampaignRules.toggle_party(campaign, selected_crew): _changed()
 
 func _move_rank(direction: int) -> void:
-	if CampaignRules.move_party(campaign, selected_crew, direction): _refresh()
+	if CampaignRules.move_party(campaign, selected_crew, direction): _changed()
 
 func _restore_health() -> void:
-	if CampaignRules.restore_health_free(campaign, selected_crew): _refresh()
+	if CampaignRules.restore_health_free(campaign, selected_crew): _changed()
 
 func _recover_strain() -> void:
-	if CampaignRules.recover_strain(campaign, selected_crew): _refresh()
+	if CampaignRules.recover_strain(campaign, selected_crew): _changed()
 
 func _recruit() -> void:
 	var member: CrewState = CampaignRules.recruit_free(campaign, _class_definition(recruit_choice.get_selected_metadata()))
 	if member != null:
 		selected_crew = member.id
-		_refresh()
+		_changed()
 
 func _buy_cell() -> void:
-	if CampaignRules.buy_cell(campaign): _refresh()
+	if CampaignRules.buy_cell(campaign): _changed()
 
 func _buy_module() -> void:
-	if CampaignRules.buy_module(campaign, module_choice.get_selected_metadata()): _refresh()
+	if CampaignRules.buy_module(campaign, module_choice.get_selected_metadata()): _changed()
 
 func _equip_module() -> void:
-	if CampaignRules.equip_module(campaign, selected_crew, module_choice.get_selected_metadata()): _refresh()
+	if CampaignRules.equip_module(campaign, selected_crew, module_choice.get_selected_metadata()): _changed()
 
 func _buy_upgrade() -> void:
-	if CampaignRules.buy_upgrade(campaign): _refresh()
+	if CampaignRules.buy_upgrade(campaign): _changed()
 
 func _deploy() -> void:
-	if CampaignRules.deploy(campaign) != null: open_screen("res://scenes/expedition.tscn")
+	if CampaignRules.deploy(campaign) != null:
+		if _checkpoint(): open_screen("res://scenes/expedition.tscn")
+
+
+func _changed() -> void:
+	_refresh()
+	_checkpoint()
+
+
+func _checkpoint() -> bool:
+	var result: Dictionary = SaveService.save_campaign(campaign)
+	if not result.ok:
+		campaign.last_report = "AUTOSAVE FAILED / " + result.message
+		(%Report as Label).text = campaign.last_report
+	return result.ok
 
 func _refresh() -> void:
 	for button: Button in roster_buttons: button.queue_free()

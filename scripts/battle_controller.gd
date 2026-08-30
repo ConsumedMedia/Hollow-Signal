@@ -18,6 +18,7 @@ var crew_definitions: Array[ActorDefinition] = ContentCatalogue.crew_party()
 var enemy_definitions: Array[ActorDefinition] = ContentCatalogue.enemy_party()
 var _generation: int = 0
 var _last_input_frame: int = -1
+var _presentation_pending: bool = false
 
 @onready var enemy_timer: Timer = $EnemyDelay
 
@@ -25,6 +26,7 @@ var _last_input_frame: int = -1
 func start_battle(keep_expedition: bool = false) -> void:
 	_generation += 1
 	enemy_timer.stop()
+	_presentation_pending = false
 	_last_input_frame = -1
 	rng.seed = battle_seed
 	if not keep_expedition:
@@ -101,8 +103,16 @@ func _on_enemy_delay_timeout() -> void:
 func _apply(command: ActionCommand) -> void:
 	phase = Phase.RESOLVING
 	var events: Array[CombatEvent] = CombatRules.resolve_action(state, command, rng)
+	_presentation_pending = true
 	events_resolved.emit(events)
 	state_changed.emit()
+	# Combat is already resolved. The presentation only acknowledges snapshots.
+
+
+func presentation_finished() -> void:
+	if not _presentation_pending or phase != Phase.RESOLVING:
+		return
+	_presentation_pending = false
 	_finish_resolution.call_deferred(_generation)
 
 

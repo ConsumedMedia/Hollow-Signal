@@ -1,6 +1,6 @@
 [gd_scene load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://scripts/screen_navigation.gd" id="1_nav"]
+[ext_resource type="Script" path="res://scripts/main_menu.gd" id="1_nav"]
 [ext_resource type="Theme" path="res://ui/prototype_theme.tres" id="2_theme"]
 [ext_resource type="Script" path="res://scripts/placeholder_stage.gd" id="3_stage"]
 
@@ -33,13 +33,13 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/margin_left = 96
-theme_override_constants/margin_top = 64
+theme_override_constants/margin_top = 40
 theme_override_constants/margin_right = 96
-theme_override_constants/margin_bottom = 56
+theme_override_constants/margin_bottom = 32
 
 [node name="Layout" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
-theme_override_constants/separation = 28
+theme_override_constants/separation = 16
 
 [node name="Header" type="Label" parent="Margin/Layout"]
 layout_mode = 2
@@ -53,13 +53,13 @@ layout_mode = 2
 [node name="Body" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 88
+theme_override_constants/separation = 60
 
 [node name="Actions" type="VBoxContainer" parent="Margin/Layout/Body"]
 custom_minimum_size = Vector2(720, 0)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 24
+theme_override_constants/separation = 12
 alignment = 1
 
 [node name="Eyebrow" type="Label" parent="Margin/Layout/Body/Actions"]
@@ -70,7 +70,7 @@ text = "A TRANSMISSION IN THE DARK"
 
 [node name="Title" type="Label" parent="Margin/Layout/Body/Actions"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 88
+theme_override_font_sizes/font_size = 68
 text = "HOLLOW\nSIGNAL"
 
 [node name="Description" type="Label" parent="Margin/Layout/Body/Actions"]
@@ -79,7 +79,7 @@ theme_override_colors/font_color = Color(0.65, 0.73, 0.77, 1)
 text = "A salvage crew. A silent vessel.\nSomething is still transmitting."
 
 [node name="Spacer" type="Control" parent="Margin/Layout/Body/Actions"]
-custom_minimum_size = Vector2(0, 12)
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 mouse_filter = 2
 
@@ -88,10 +88,25 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "New Game"
 
+[node name="LoadGame" type="Button" parent="Margin/Layout/Body/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Load Campaign"
+
+[node name="RecoverBackup" type="Button" parent="Margin/Layout/Body/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Recover Known-Good Backup"
+
 [node name="BattleTest" type="Button" parent="Margin/Layout/Body/Actions"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Battle Test"
+
+[node name="Help" type="Button" parent="Margin/Layout/Body/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "How to Play"
 
 [node name="Quit" type="Button" parent="Margin/Layout/Body/Actions"]
 unique_name_in_owner = true
@@ -101,7 +116,7 @@ text = "Quit"
 [node name="Preview" type="VBoxContainer" parent="Margin/Layout/Body"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 24
+theme_override_constants/separation = 16
 alignment = 1
 
 [node name="SchematicLabel" type="Label" parent="Margin/Layout/Body/Preview"]
@@ -110,7 +125,7 @@ theme_override_font_sizes/font_size = 24
 text = "DERELICT RESEARCH VESSEL"
 
 [node name="Schematic" type="Control" parent="Margin/Layout/Body/Preview"]
-custom_minimum_size = Vector2(640, 460)
+custom_minimum_size = Vector2(640, 360)
 layout_mode = 2
 mouse_filter = 2
 script = ExtResource("3_stage")
@@ -119,7 +134,19 @@ script = ExtResource("3_stage")
 layout_mode = 2
 theme_override_colors/font_color = Color(0.65, 0.73, 0.77, 1)
 theme_override_font_sizes/font_size = 24
-text = "Eight-room exploration and crew combat.\nManage eight crew, equipment and recovery.\nIn-memory campaign; disk saving arrives next."
+text = "Eight-room exploration and crew combat.\nManage eight crew, equipment and recovery.\nVersioned campaign checkpoints with recovery."
+
+[node name="SaveStatus" type="Label" parent="Margin/Layout/Body/Preview"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+text = "AUTOSAVE / checking..."
+
+[node name="NewGameConfirmation" type="ConfirmationDialog" parent="."]
+unique_name_in_owner = true
+title = "Replace campaign?"
+dialog_text = "New Game replaces the current autosave after you confirm. A damaged or incompatible save is never replaced merely by loading the menu. Continue?"
+ok_button_text = "Replace and start"
 
 [node name="FooterRule" type="HSeparator" parent="Margin/Layout"]
 layout_mode = 2
@@ -130,6 +157,6 @@ theme_override_colors/font_color = Color(0.65, 0.73, 0.77, 1)
 theme_override_font_sizes/font_size = 24
 text = "CLICK to select   /   TAB or ARROWS to focus   /   ENTER to confirm   /   F11 fullscreen"
 
-[connection signal="pressed" from="Margin/Layout/Body/Actions/NewGame" to="." method="new_game" binds= ["res://scenes/hub.tscn"]]
 [connection signal="pressed" from="Margin/Layout/Body/Actions/BattleTest" to="." method="open_screen" binds= ["res://scenes/battle_test.tscn"]]
+[connection signal="pressed" from="Margin/Layout/Body/Actions/Help" to="." method="open_screen" binds= ["res://scenes/help.tscn"]]
 [connection signal="pressed" from="Margin/Layout/Body/Actions/Quit" to="." method="quit_game"]

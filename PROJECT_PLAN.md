@@ -2,7 +2,7 @@
 
 ## Specification and scope
 
-The user supplied the full plan on 2026-08-27 and subsequently authorized milestones 1–7. Milestone 6 received general playtest acceptance and its checkpoint was uploaded. Milestone 7 was requested on 2026-08-29. Operational requirements are in SPECIFICATION.md; the supplied plan remains authoritative. Milestones 8–13 have not been requested.
+The user supplied the full plan on 2026-08-27 and subsequently authorized milestones 1–9. Milestone 7 was uploaded as checkpoint `546aa38`; milestones 8 and 9 remain local pending physical acceptance and a requested upload. Operational requirements are in SPECIFICATION.md; the supplied plan remains authoritative. Milestones 10–13 have not been requested.
 
 ## Required approach
 
@@ -30,7 +30,8 @@ Repository: [ConsumedMedia/Hollow-Signal](https://github.com/ConsumedMedia/Hollo
 
 1. Milestone 4 received general user playtest acceptance on 2026-08-28; individual README.md checks were not separately reported. Retain those checks for regression testing.
 2. Fix reported problems before proceeding. The earlier Close strike observation was not reproduced; its tests remain, and the user authorized continuing without supplying a screenshot. Do not claim a confirmed fix for that report.
-3. Milestone 7 is implemented and automatically verified. Obtain the user's acceptance playtest and fix reports before a checkpoint or milestone 8. Disk save remains out of scope.
+3. Milestone 8 and the Help screen are implemented and automatically verified; its pending-cargo autosave fix still needs the user's physical retest.
+4. Milestone 9 is implemented and automatically/render-verified. Its battle composition was revised from user-supplied reference screenshots: large upper action theatre, compact targeting strip, lower-left active-crew command deck, lower-right read-only moving ship schematic, and temporary attacker/target focus with impact damage text. This is an original geometric adaptation and adds no reference-game content or mechanics. Obtain the user's physical animation, skip, map-marker and moving-parallax playtest, fix reports, then upload milestones 8–9 only after requested/accepted.
 
 ## Milestone 1 — Project setup
 
@@ -92,7 +93,7 @@ Delivered: explicit ship/room/item Resources; separate room/inventory runtime re
 
 ## Milestone 7 — Persistent hub and complete game loop
 
-Status: implemented locally and automatically verified on 2026-08-29. Import, 314 rules, 527 headless scene and 754 rendered scene checks pass. Both intentional runner failures exit 1. Hub screenshots were reviewed at 1280×720 and 1920×1080. Physical user acceptance and Git checkpoint are pending.
+Status: complete and uploaded on 2026-08-29 at `546aa38`. Its final checkpoint passed import, 314 rules, 527 headless and 754 rendered checks. Milestone 8 now replaces its in-memory-only limitation.
 
 Eight starting crew, party selection and ordering, recruitment, recovery, supplies, six modules, one upgrade tier. Success, guaranteed retreat with half-salvage loss, and expedition defeat. Permanent deaths and persistent strain; free basic recruitment and full-health restoration safeguards.
 
@@ -102,19 +103,23 @@ Delivered: one in-memory campaign service; eight individual starting crew with t
 
 ## Milestone 8 — Save and load
 
-Status: not started.
+Status: implemented locally and automatically verified on 2026-08-29. After the user exposed a pending-cargo validation defect, the fix passes clean import, 333 rules and 554 headless scene checks; the preceding visual-only state passed 556 rendered scene and 790 graphical capture checks with zero failures/engine errors. Main-menu and Help screenshots were reviewed at 1280×720 and 1920×1080. Physical close/reopen and manual file-corruption playtesting are pending; no Git checkpoint/upload yet.
 
 Versioned validated JSON under user://, temporary writes and backup. Save roster, equipment, upgrades, expedition, room states, inventory, power, rewards, and required randomness. Battle-entry checkpoint policy; no animation progress or arbitrary node serialization.
 
 Acceptance: reopen restores checkpoint; mid-battle loading restarts same encounter; deaths/rewards not duplicated; corrupt-save recovery; unsupported version not silently overwritten.
 
+Delivered: `SaveCodec` and `SaveStore` keep authored Resources separate from reconstructed mutable records; version 1 JSON with exact decimal encounter seeds; verified temporary writes; known-good backup rotation; one main-menu Load action and explicit backup recovery; confirmed New Game replacement; autosaves at hub, deployment, room/event/cargo boundaries, battle entry/resolution and expedition return; automatic battle-entry restart using the same seed. Added a scrollable spoiler-free mechanics Help screen using native controls and labels. No scene-node or animation state is serialized.
+
 ## Milestone 9 — One polished visual example
 
-Status: not started.
+Status: implemented and automatically verified; physical playtest pending.
 
 One polished combat/corridor example, using approved assets or retaining placeholders. Layered 2D, Parallax2D, shadows, framing, scalable HUD. Reusable character scene with idle/walk/attack/support/hurt/downed/death. Event-driven anticipation, impact, reaction, sound hooks, return.
 
 Acceptance: no visible parallax seams; fixed HUD; readable characters; animation skip and missing-animation fallback finish without combat lock.
+
+Delivered: one native shape-based battle theatre and corridor with distant, machinery and foreground `Parallax2D` strips at 0.15, 0.4 and 1.15 depth multipliers; repeated edge-matched geometry; grounded crew/enemy silhouettes; a reusable character presentation scene with idle, walk, attack, support, hurt, downed and death states; event-driven anticipation/impact/reaction/return; sound cue hooks without audio assets; a resolving-phase presentation acknowledgement; visible skip control; immediate fallback for missing animation. Rules still resolve first and emit immutable snapshots; presentation consumes no gameplay randomness and mutates no combat values.
 
 ## Milestone 10 — Art production preparation
 

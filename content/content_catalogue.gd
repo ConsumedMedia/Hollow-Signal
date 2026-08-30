@@ -16,6 +16,8 @@ const NEEDLE: ActorDefinition = preload("res://content/actors/needle.tres")
 const CHORISTER: ActorDefinition = preload("res://content/actors/chorister.tres")
 const SHIP: ShipDefinition = preload("res://content/ship.tres")
 const POWER_CELL: ItemDefinition = preload("res://content/items/power_cell.tres")
+const SCRAP: ItemDefinition = preload("res://content/items/scrap.tres")
+const WAFER: ItemDefinition = preload("res://content/items/wafer.tres")
 const MODULES: Array[ModuleDefinition] = [
 	preload("res://content/modules/reinforced_plating.tres"),
 	preload("res://content/modules/servo_rig.tres"),
@@ -37,4 +39,18 @@ static func get_module(module_id: StringName) -> ModuleDefinition:
 	for module: ModuleDefinition in MODULES:
 		if module.id == module_id:
 			return module
+	return null
+
+
+static func get_actor(actor_id: StringName) -> ActorDefinition:
+	for actor: ActorDefinition in [BREACHER, TECHNICIAN, RANGER, MEDIC, MAULER, BULWARK, TUGGER, NEEDLE, CHORISTER, TEST_CREW, TEST_ENEMY]:
+		if actor.id == actor_id:
+			return actor
+	return null
+
+
+static func get_item(item_id: StringName) -> ItemDefinition:
+	for item: ItemDefinition in [POWER_CELL, SCRAP, WAFER]:
+		if item.id == item_id:
+			return item
 	return null

@@ -23,6 +23,7 @@ func run() -> int:
 	_test_inventory_and_room_events()
 	_test_full_expedition()
 	_test_campaign_loop()
+	_test_save_round_trip()
 	if "--self-test-failure" in OS.get_cmdline_user_args():
 		_check(false, "Intentional test-runner failure")
 	print("COMBAT RULES: %d checks, %d failures" % [_checks, _failures])
@@ -1030,6 +1031,75 @@ func _test_campaign_loop() -> void:
 	_check(CampaignRules.complete_expedition(campaign, &"defeat") and campaign.party_ids.is_empty(), "Party defeat permanently removes dead crew from selection")
 	var replacement: CrewState = CampaignRules.recruit_free(campaign, ContentCatalogue.BREACHER)
 	_check(replacement != null and replacement.upgrade_health_bonus == 2 and CampaignRules.toggle_party(campaign, replacement.id), "Free upgraded recruitment keeps a campaign playable after total party loss")
+
+
+func _test_save_round_trip() -> void:
+	var campaign: CampaignState = CampaignRules.create_campaign()
+	campaign.salvage = 77
+	campaign.data_wafers = 4
+	CampaignRules.buy_module(campaign, ContentCatalogue.MODULES[0].id)
+	CampaignRules.equip_module(campaign, campaign.roster[0].id, ContentCatalogue.MODULES[0].id)
+	var expedition: ExpeditionState = CampaignRules.deploy(campaign, 922337)
+	ExpeditionRules.begin_travel(expedition, &"receiving")
+	ExpeditionRules.arrive(expedition)
+	var room: RoomDefinition = ExpeditionRules.begin_encounter(expedition)
+	var seed_before: int = expedition.rooms[room.id].encounter_seed
+	var text: String = JSON.stringify(SaveCodec.encode(campaign))
+	var decoded: Dictionary = SaveCodec.decode(JSON.parse_string(text))
+	_check(decoded.ok, "Versioned JSON campaign round trip validates")
+	if decoded.ok:
+		var loaded: CampaignState = decoded.state
+		_check(loaded != campaign and loaded.roster[0] != campaign.roster[0] and loaded.roster[0].definition == campaign.roster[0].definition, "Loading creates new mutable records while reusing authored Resources")
+		_check(loaded.salvage == 67 and loaded.data_wafers == 4 and loaded.roster[0].module_id == ContentCatalogue.MODULES[0].id, "Campaign currency and equipment survive JSON")
+		_check(loaded.active_expedition != null and loaded.active_expedition.encounter_room == &"receiving" and not loaded.active_expedition.battle_active, "Battle checkpoint reloads at reserved encounter entry")
+		_check(loaded.active_expedition.rooms[&"receiving"].encounter_seed == seed_before, "Encounter seed is serialized as an exact decimal string")
+		loaded.roster[0].health -= 1
+		_check(loaded.roster[0].health != campaign.roster[0].health, "Loaded runtime health does not alias live campaign health")
+	var overflow_campaign: CampaignState = CampaignRules.create_campaign()
+	var overflow_expedition: ExpeditionState = CampaignRules.deploy(overflow_campaign)
+	overflow_expedition.inventory.add(ContentCatalogue.POWER_CELL, 34)
+	overflow_expedition.pending_loot.append(ItemStack.new(ContentCatalogue.SCRAP, 40))
+	var overflow_reload: Dictionary = SaveCodec.decode(JSON.parse_string(JSON.stringify(SaveCodec.encode(overflow_campaign))))
+	_check(overflow_reload.ok and overflow_reload.state.active_expedition.pending_loot[0].quantity == 40,
+		"Pending overflow may exceed item max_stack until the player resolves cargo")
+	var invalid_stored_stack: Dictionary = SaveCodec.encode(overflow_campaign)
+	invalid_stored_stack.campaign.active_expedition.inventory[0].quantity = 40
+	_check(SaveCodec.decode(invalid_stored_stack).code == &"corrupt", "Stored inventory stacks still enforce the authored max_stack")
+	var reward_campaign: CampaignState = CampaignRules.create_campaign()
+	var reward_expedition: ExpeditionState = CampaignRules.deploy(reward_campaign)
+	reward_expedition.inventory.add(ContentCatalogue.SCRAP, 8)
+	CampaignRules.complete_expedition(reward_campaign, &"retreat")
+	var rewarded_salvage: int = reward_campaign.salvage
+	reward_campaign.roster[7].dead = true
+	reward_campaign.roster[7].health = 0
+	var reward_reload: Dictionary = SaveCodec.decode(JSON.parse_string(JSON.stringify(SaveCodec.encode(reward_campaign))))
+	_check(reward_reload.ok and reward_reload.state.salvage == rewarded_salvage and reward_reload.state.active_expedition == null, "Completed-expedition rewards and consumed expedition survive reload exactly once")
+	_check(not CampaignRules.complete_expedition(reward_reload.state, &"retreat") and reward_reload.state.salvage == rewarded_salvage, "Reload cannot apply completed expedition rewards again")
+	_check(reward_reload.state.roster[7].dead and reward_reload.state.roster[7].health == 0, "Permanent death survives the JSON checkpoint")
+	var unsupported: Dictionary = SaveCodec.encode(campaign)
+	unsupported.version = 999
+	_check(SaveCodec.decode(unsupported).code == &"unsupported", "Unsupported version is distinguished from damaged data")
+	var corrupt: Dictionary = SaveCodec.encode(campaign)
+	corrupt.campaign.roster[0].class_id = "missing_class"
+	_check(SaveCodec.decode(corrupt).code == &"corrupt", "Unknown authored IDs reject the entire save before live state changes")
+	corrupt = SaveCodec.encode(campaign)
+	corrupt.campaign.roster[0].health = "not a number"
+	_check(SaveCodec.decode(corrupt).code == &"corrupt", "Wrong JSON field types fail validation without partial reconstruction")
+	var base: String = "user://hollow_signal_m8_test_%d" % Time.get_ticks_msec()
+	var store: SaveStore = SaveStore.new(base)
+	store.delete_all()
+	_check(store.save_campaign(campaign).ok, "Verified temporary write installs the main checkpoint")
+	campaign.salvage += 1
+	_check(store.save_campaign(campaign).ok and store.inspect().backup.ok, "Second checkpoint preserves the prior known-good backup")
+	var expected_backup_salvage: int = 67
+	var backup: Dictionary = store.load_campaign(true)
+	_check(backup.ok and backup.state.salvage == expected_backup_salvage, "Known-good backup loads the prior campaign")
+	var main_file: FileAccess = FileAccess.open(store.main_path, FileAccess.WRITE)
+	main_file.store_string("{ damaged")
+	main_file.close()
+	_check(store.load_campaign().code == &"corrupt" and store.load_campaign(true).ok, "Damaged main save exposes an explicit backup recovery path")
+	_check(not store.save_campaign(campaign).ok, "Autosave refuses to overwrite a damaged main save")
+	store.delete_all()
 
 
 func _cargo_count(state: ExpeditionState) -> int:

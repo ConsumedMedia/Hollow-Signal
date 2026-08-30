@@ -1,15 +1,16 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/battle_screen.gd" id="1_nav"]
 [ext_resource type="Theme" path="res://ui/prototype_theme.tres" id="2_theme"]
-[ext_resource type="Script" path="res://scripts/placeholder_stage.gd" id="3_stage"]
+[ext_resource type="Script" path="res://presentation/battle_stage.gd" id="3_stage"]
 [ext_resource type="Script" path="res://scripts/battle_controller.gd" id="4_controller"]
+[ext_resource type="Script" path="res://presentation/battle_room_map.gd" id="5_map"]
 
 [sub_resource type="StyleBoxFlat" id="DisabledButton"]
 content_margin_left = 12.0
-content_margin_top = 18.0
+content_margin_top = 8.0
 content_margin_right = 12.0
-content_margin_bottom = 18.0
+content_margin_bottom = 8.0
 bg_color = Color(0.055, 0.075, 0.095, 1)
 border_width_left = 2
 border_width_top = 2
@@ -20,8 +21,8 @@ border_color = Color(0.16, 0.23, 0.28, 1)
 [sub_resource type="StyleBoxFlat" id="CardNormal"]
 content_margin_left = 12.0
 content_margin_right = 12.0
-content_margin_top = 18.0
-content_margin_bottom = 18.0
+content_margin_top = 8.0
+content_margin_bottom = 8.0
 bg_color = Color(0.105, 0.17, 0.215, 1)
 border_width_left = 2
 border_width_top = 2
@@ -32,8 +33,8 @@ border_color = Color(0.29, 0.41, 0.46, 1)
 [sub_resource type="StyleBoxFlat" id="CardHover"]
 content_margin_left = 12.0
 content_margin_right = 12.0
-content_margin_top = 18.0
-content_margin_bottom = 18.0
+content_margin_top = 8.0
+content_margin_bottom = 8.0
 bg_color = Color(0.16, 0.27, 0.31, 1)
 border_width_left = 2
 border_width_top = 2
@@ -82,10 +83,10 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 64
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 64
-theme_override_constants/margin_bottom = 16
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 6
 
 [node name="Layout" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
@@ -94,19 +95,19 @@ theme_override_constants/separation = 6
 [node name="Header" type="Label" parent="Margin/Layout"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.47, 0.84, 0.85, 1)
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 20
 text = "HOLLOW SIGNAL   /   CREW VULNERABILITY & POWER TEST"
 
 [node name="TurnLabel" type="Label" parent="Margin/Layout"]
 layout_mode = 2
 unique_name_in_owner = true
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 26
 text = "Round 1 / Initiative"
 
 [node name="OrderLabel" type="Label" parent="Margin/Layout"]
 layout_mode = 2
 unique_name_in_owner = true
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 18
 text = "Remaining order (Speed + d6)"
 
 [node name="Sides" type="HBoxContainer" parent="Margin/Layout"]
@@ -128,12 +129,13 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Overcharge / 10 power / +50% damage"
 
-[node name="Drill" type="Button" parent="Margin/Layout/PowerBar"]
+[node name="SkipPresentation" type="Button" parent="Margin/Layout/PowerBar"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Vulnerability drill"
-tooltip_text = "Starts a NEW test fixture: Medic first, C1 downed, C3 Shaken, 10 power. Not a normal expedition."
+text = "Skip animation"
+tooltip_text = "Finishes presentation immediately. The combat result has already been resolved."
+disabled = true
 
 
 [node name="CrewLabel" type="Label" parent="Margin/Layout/Sides"]
@@ -154,11 +156,10 @@ horizontal_alignment = 1
 
 [node name="Stage" type="Control" parent="Margin/Layout"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 65)
+custom_minimum_size = Vector2(0, 280)
 size_flags_vertical = 3
 mouse_filter = 2
 script = ExtResource("3_stage")
-display = 1
 
 [node name="Formation" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
@@ -167,9 +168,10 @@ theme_override_constants/separation = 0
 [node name="CrewSlots" type="HBoxContainer" parent="Margin/Layout/Formation"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 12
+theme_override_constants/separation = 6
 
 [node name="CrewRank4" type="Button" parent="Margin/Layout/Formation/CrewSlots"]
+clip_text = true
 theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
 theme_override_styles/disabled = SubResource("DisabledButton")
 theme_override_styles/normal = SubResource("CardNormal")
@@ -178,10 +180,11 @@ theme_override_styles/pressed = SubResource("CardHover")
 layout_mode = 2
 unique_name_in_owner = true
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 16
 text = "Rank 4\nHP —\nStanding"
 
 [node name="CrewRank3" type="Button" parent="Margin/Layout/Formation/CrewSlots"]
+clip_text = true
 theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
 theme_override_styles/disabled = SubResource("DisabledButton")
 theme_override_styles/normal = SubResource("CardNormal")
@@ -190,10 +193,11 @@ theme_override_styles/pressed = SubResource("CardHover")
 layout_mode = 2
 unique_name_in_owner = true
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 16
 text = "Rank 3\nHP —\nStanding"
 
 [node name="CrewRank2" type="Button" parent="Margin/Layout/Formation/CrewSlots"]
+clip_text = true
 theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
 theme_override_styles/disabled = SubResource("DisabledButton")
 theme_override_styles/normal = SubResource("CardNormal")
@@ -202,10 +206,11 @@ theme_override_styles/pressed = SubResource("CardHover")
 layout_mode = 2
 unique_name_in_owner = true
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 16
 text = "Rank 2\nHP —\nStanding"
 
 [node name="CrewRank1" type="Button" parent="Margin/Layout/Formation/CrewSlots"]
+clip_text = true
 theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
 theme_override_styles/disabled = SubResource("DisabledButton")
 theme_override_styles/normal = SubResource("CardNormal")
@@ -214,7 +219,7 @@ theme_override_styles/pressed = SubResource("CardHover")
 layout_mode = 2
 unique_name_in_owner = true
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 16
 text = "Rank 1\nHP —\nStanding"
 
 [node name="Gap" type="Control" parent="Margin/Layout/Formation"]
@@ -225,9 +230,10 @@ mouse_filter = 2
 [node name="EnemySlots" type="HBoxContainer" parent="Margin/Layout/Formation"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 12
+theme_override_constants/separation = 6
 
 [node name="EnemyRank1" type="Button" parent="Margin/Layout/Formation/EnemySlots"]
+clip_text = true
 theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
 theme_override_styles/disabled = SubResource("DisabledButton")
 theme_override_styles/normal = SubResource("CardNormal")
@@ -236,10 +242,11 @@ theme_override_styles/pressed = SubResource("CardHover")
 layout_mode = 2
 unique_name_in_owner = true
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 16
 text = "Rank 1\nHP —\nStanding"
 
 [node name="EnemyRank2" type="Button" parent="Margin/Layout/Formation/EnemySlots"]
+clip_text = true
 theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
 theme_override_styles/disabled = SubResource("DisabledButton")
 theme_override_styles/normal = SubResource("CardNormal")
@@ -248,10 +255,11 @@ theme_override_styles/pressed = SubResource("CardHover")
 layout_mode = 2
 unique_name_in_owner = true
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 16
 text = "Rank 2\nHP —\nStanding"
 
 [node name="EnemyRank3" type="Button" parent="Margin/Layout/Formation/EnemySlots"]
+clip_text = true
 theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
 theme_override_styles/disabled = SubResource("DisabledButton")
 theme_override_styles/normal = SubResource("CardNormal")
@@ -260,10 +268,11 @@ theme_override_styles/pressed = SubResource("CardHover")
 layout_mode = 2
 unique_name_in_owner = true
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 16
 text = "Rank 3\nHP —\nStanding"
 
 [node name="EnemyRank4" type="Button" parent="Margin/Layout/Formation/EnemySlots"]
+clip_text = true
 theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
 theme_override_styles/disabled = SubResource("DisabledButton")
 theme_override_styles/normal = SubResource("CardNormal")
@@ -272,90 +281,133 @@ theme_override_styles/pressed = SubResource("CardHover")
 layout_mode = 2
 unique_name_in_owner = true
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 16
 text = "Rank 4\nHP —\nStanding"
 
-[node name="Actions" type="HBoxContainer" parent="Margin/Layout"]
+[node name="LowerHUD" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
+custom_minimum_size = Vector2(0, 210)
 theme_override_constants/separation = 16
 
-[node name="Strike" type="Button" parent="Margin/Layout/Actions"]
+[node name="CommandPanel" type="VBoxContainer" parent="Margin/Layout/LowerHUD"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.25
+theme_override_constants/separation = 6
+
+[node name="SelectedActorSummary" type="Label" parent="Margin/Layout/LowerHUD/CommandPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.47, 0.84, 0.85, 1)
+theme_override_font_sizes/font_size = 20
+text = "ACTIVE CREW / health / strain / status"
+
+[node name="Actions" type="HBoxContainer" parent="Margin/Layout/LowerHUD/CommandPanel"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Strike" type="Button" parent="Margin/Layout/LowerHUD/CommandPanel/Actions"]
 theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
 theme_override_styles/disabled = SubResource("DisabledButton")
 layout_mode = 2
 unique_name_in_owner = true
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 16
 text = "Close strike"
 
-[node name="Shot" type="Button" parent="Margin/Layout/Actions"]
+[node name="Shot" type="Button" parent="Margin/Layout/LowerHUD/CommandPanel/Actions"]
 theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
 theme_override_styles/disabled = SubResource("DisabledButton")
 layout_mode = 2
 unique_name_in_owner = true
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 16
 text = "Covering shot"
 
-[node name="Skill3" type="Button" parent="Margin/Layout/Actions"]
+[node name="Skill3" type="Button" parent="Margin/Layout/LowerHUD/CommandPanel/Actions"]
 theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
 theme_override_styles/disabled = SubResource("DisabledButton")
 layout_mode = 2
 unique_name_in_owner = true
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 16
 text = "Third ability"
 
-[node name="Move" type="Button" parent="Margin/Layout/Actions"]
+[node name="Move" type="Button" parent="Margin/Layout/LowerHUD/CommandPanel/Actions"]
 theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
 theme_override_styles/disabled = SubResource("DisabledButton")
 layout_mode = 2
 unique_name_in_owner = true
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 16
 text = "Move / swap"
 
-[node name="Wait" type="Button" parent="Margin/Layout/Actions"]
+[node name="Wait" type="Button" parent="Margin/Layout/LowerHUD/CommandPanel/Actions"]
 theme_override_colors/font_disabled_color = Color(0.72, 0.76, 0.78, 1)
 theme_override_styles/disabled = SubResource("DisabledButton")
 layout_mode = 2
 unique_name_in_owner = true
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 16
 text = "Wait / skip"
 
-[node name="ActionHelp" type="Label" parent="Margin/Layout"]
+[node name="MapPanel" type="VBoxContainer" parent="Margin/Layout/LowerHUD"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="AbilityInfo" type="VBoxContainer" parent="Margin/Layout/LowerHUD/CommandPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="ActionHelp" type="Label" parent="Margin/Layout/LowerHUD/CommandPanel/AbilityInfo"]
 layout_mode = 2
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 84)
-theme_override_font_sizes/font_size = 22
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 15
 text = "Attack requirements and selection appear here."
 autowrap_mode = 2
 
-[node name="SelectedDetail" type="Label" parent="Margin/Layout"]
+[node name="SelectedDetail" type="Label" parent="Margin/Layout/LowerHUD/CommandPanel/AbilityInfo"]
 layout_mode = 2
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 52)
-theme_override_font_sizes/font_size = 22
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 15
 autowrap_mode = 2
 text = "Selected ability details and target damage."
 
-[node name="StatusPanel" type="PanelContainer" parent="Margin/Layout"]
+[node name="BattleRoomMap" type="Control" parent="Margin/Layout/LowerHUD/MapPanel"]
+unique_name_in_owner = true
 layout_mode = 2
+custom_minimum_size = Vector2(0, 135)
+size_flags_vertical = 3
+script = ExtResource("5_map")
+
+[node name="StatusPanel" type="PanelContainer" parent="Margin/Layout/LowerHUD/MapPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("CompactPanel")
 
 
-[node name="Status" type="Label" parent="Margin/Layout/StatusPanel"]
+[node name="Status" type="Label" parent="Margin/Layout/LowerHUD/MapPanel/StatusPanel"]
 layout_mode = 2
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 84)
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 14
 text = "Battle events appear here."
 autowrap_mode = 2
 
 [node name="Navigation" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
 theme_override_constants/separation = 24
+
+[node name="Drill" type="Button" parent="Margin/Layout/Navigation"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
+text = "Vulnerability drill"
+tooltip_text = "Starts a NEW test fixture: Medic first, C1 downed, C3 Shaken, 10 power. Not a normal expedition."
 
 [node name="Encounter" type="Button" parent="Margin/Layout/Navigation"]
 layout_mode = 2

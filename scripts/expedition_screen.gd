@@ -7,6 +7,7 @@ var battle: Control
 var selected_slot: int = -1
 var _discard_choice: int = -3
 var _last_action_frame: int = -1
+var checkpoint_message: String = "CHECKPOINT READY"
 @onready var room_map: RoomMap = %RoomMap
 @onready var corridor: CorridorView = %Corridor
 @onready var inventory_grid: GridContainer = %InventoryGrid
@@ -51,6 +52,9 @@ func _ready() -> void:
 	dialog.confirmed.connect(_confirm_discard)
 	dialog.canceled.connect(func() -> void: _discard_choice = -3)
 	_refresh()
+	if not expedition.encounter_room.is_empty():
+		checkpoint_message = "LOADED BATTLE-ENTRY CHECKPOINT / encounter restarting with the same seed"
+		_resume_encounter.call_deferred()
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -80,6 +84,7 @@ func _travel(room_id: StringName) -> void:
 func _arrive() -> void:
 	if ExpeditionRules.arrive(expedition):
 		_refresh()
+		_checkpoint()
 		# The focused map/skip control was hidden during travel. Focus the room's action.
 		for button: Button in [%Engage, %InspectAccept, %EndTest]:
 			if button.is_visible_in_tree() and not button.disabled:
@@ -90,6 +95,7 @@ func _arrive() -> void:
 func _inspect(choice: StringName) -> void:
 	if _accept_input() and ExpeditionRules.inspect(expedition, choice):
 		_refresh()
+		_checkpoint()
 
 
 func _select_slot(slot: int) -> void:
@@ -101,6 +107,7 @@ func _use_cell() -> void:
 	if _accept_input() and ExpeditionRules.use_power_cell(expedition, selected_slot):
 		selected_slot = -1
 		_refresh()
+		_checkpoint()
 
 
 func _ask_discard_slot() -> void:
@@ -133,6 +140,7 @@ func _confirm_discard() -> void:
 		ExpeditionRules.discard_slot(expedition, choice)
 	selected_slot = -1
 	_refresh()
+	_checkpoint()
 
 
 func _engage() -> void:
@@ -141,6 +149,23 @@ func _engage() -> void:
 	var room: RoomDefinition = ExpeditionRules.begin_encounter(expedition)
 	if room == null:
 		return
+	if not _checkpoint():
+		expedition.encounter_room = &""
+		_refresh()
+		return
+	_open_battle(room)
+
+
+func _resume_encounter() -> void:
+	var room: RoomDefinition = expedition.ship.get_room(expedition.encounter_room)
+	if room == null or expedition.rooms[room.id].resolved:
+		checkpoint_message = "LOAD ERROR / saved encounter is invalid"
+		_refresh()
+		return
+	_open_battle(room)
+
+
+func _open_battle(room: RoomDefinition) -> void:
 	battle = BATTLE_SCENE.instantiate() as Control
 	battle.set("expedition_mode", true)
 	var controller: BattleController = battle.get_node("BattleController") as BattleController
@@ -168,6 +193,7 @@ func _finish_battle() -> void:
 	$Margin.show()
 	selected_slot = -1
 	_refresh()
+	_checkpoint()
 	(%EndTest as Button).grab_focus()
 	if expedition.outcome in [&"retreat", &"defeat"]:
 		_return_to_hub()
@@ -181,7 +207,18 @@ func _return_to_hub() -> void:
 		var result: StringName = &"defeat" if expedition.failed else (&"success" if expedition.boss_cleared else &"retreat")
 		if not CampaignRules.complete_expedition(campaign, result):
 			return
+		if not _checkpoint(): return
 	open_screen("res://scenes/hub.tscn")
+
+
+func _checkpoint() -> bool:
+	var campaign: CampaignState = CampaignService.state
+	if campaign == null or campaign.active_expedition != expedition:
+		return true
+	var result: Dictionary = SaveService.save_campaign(campaign)
+	checkpoint_message = "CHECKPOINT SAVED" if result.ok else "AUTOSAVE FAILED / " + result.message
+	if not result.ok: push_error(checkpoint_message)
+	return result.ok
 
 
 func _refresh() -> void:
@@ -198,10 +235,10 @@ func _refresh() -> void:
 	(%EndTest as Button).disabled = travelling or pending
 	(%EndTest as Button).text = "Return to hub / party lost" if expedition.failed else ("Extract success" if expedition.boss_cleared else "Retreat / lose half salvage")
 	var entry_power: int = expedition.power if travelling else maxi(0, expedition.power - CombatRules.BALANCE.corridor_power_cost)
-	(%Summary as Label).text = "POWER %d/%d | Entry strain after travel +%d | Cargo %d/%d slots | %s" % [
+	(%Summary as Label).text = "POWER %d/%d | Entry strain after travel +%d | Cargo %d/%d slots | %s | %s" % [
 		expedition.power, CombatRules.BALANCE.power_max, CombatRules.room_strain(entry_power),
 		expedition.inventory.stacks.size(), expedition.inventory.capacity,
-		"EXPEDITION FAILED" if expedition.failed else ("BOSS PLACEHOLDER CLEARED" if expedition.boss_cleared else "Exploring")]
+		"EXPEDITION FAILED" if expedition.failed else ("BOSS PLACEHOLDER CLEARED" if expedition.boss_cleared else "Exploring"), checkpoint_message]
 	var crew: PackedStringArray = []
 	for member: CrewState in expedition.crew:
 		crew.append("%s / %s: %s" % [member.call_sign, member.definition.display_name,

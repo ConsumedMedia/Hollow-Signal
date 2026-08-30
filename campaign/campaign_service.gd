@@ -1,5 +1,5 @@
 extends Node
-## One in-memory campaign slot. Versioned disk persistence arrives in milestone 8.
+## One live campaign slot. SaveService validates disk data before assigning state.
 
 var state: CampaignState
 

@@ -1,14 +1,26 @@
 class_name CorridorView
 extends Control
-## Short native 2D presentation. Finishing or skipping calls the same arrival rule.
+## Layered native 2D presentation. Finishing/skipping call the same arrival rule.
 signal finished
+const LAYER_SCRIPT: Script = preload("res://presentation/parallax_layer.gd")
 var crew_count: int = 4
 var progress: float = 0.0:
 	set(value):
 		progress = value
+		_update_parallax()
 		queue_redraw()
 var _tween: Tween
 var _running: bool = false
+var _layers: Array[Parallax2D] = []
+
+
+func _ready() -> void:
+	# The corridor owns a clipped local canvas; this keeps its rear layers above
+	# the expedition screen background and behind the crew silhouettes.
+	z_index = 10
+	resized.connect(_layout_layers)
+	_build_layers()
+	_layout_layers()
 
 func begin(seconds: float) -> void:
 	if _running:
@@ -31,13 +43,7 @@ func finish() -> void:
 	finished.emit()
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color("101d29"))
 	var floor_y: float = size.y * 0.8
-	for column: int in range(-2, 14):
-		var x: float = column * 180.0 - fmod(progress * 720.0, 180.0)
-		draw_rect(Rect2(x + 12.0, 12.0, 155.0, floor_y - 20.0), Color("203343"))
-		draw_line(Vector2(x + 20.0, 40.0), Vector2(x + 150.0, 40.0), Color("4d6674"), 4.0)
-	draw_rect(Rect2(0, floor_y, size.x, size.y - floor_y), Color("070d14"))
 	for member: int in range(crew_count):
 		var x: float = size.x * 0.4 + member * 58.0
 		var bounce: float = sin(progress * TAU * 5.0 + member) * 3.0
@@ -45,3 +51,33 @@ func _draw() -> void:
 		draw_rect(Rect2(x + 4.0, floor_y - 83.0 + bounce, 17.0, 17.0), Color("77d5d9"))
 		draw_line(Vector2(x + 5.0, floor_y - 24.0), Vector2(x + 3.0 + bounce, floor_y), Color("4d9296"), 8.0)
 		draw_line(Vector2(x + 20.0, floor_y - 24.0), Vector2(x + 23.0 - bounce, floor_y), Color("4d9296"), 8.0)
+
+
+func _build_layers() -> void:
+	for kind: int in range(3):
+		var parallax := Parallax2D.new()
+		parallax.name = ["DistantParallax", "MachineryParallax", "ForegroundParallax"][kind]
+		parallax.scroll_scale = [Vector2(0.15, 0.15), Vector2(0.4, 0.4), Vector2(1.15, 1.15)][kind]
+		parallax.repeat_times = 3
+		parallax.z_index = [-3, -2, 1][kind]
+		var art := SignalParallaxLayer.new()
+		art.name = "RepeatableArt"
+		art.layer_kind = kind
+		parallax.add_child(art)
+		add_child(parallax)
+		_layers.append(parallax)
+
+
+func _layout_layers() -> void:
+	for index: int in range(_layers.size()):
+		var parallax: Parallax2D = _layers[index]
+		parallax.repeat_size = Vector2(maxf(size.x, 1.0), 0.0)
+		(parallax.get_node("RepeatableArt") as SignalParallaxLayer).configure(index, size)
+	_update_parallax()
+
+
+func _update_parallax() -> void:
+	for index: int in range(_layers.size()):
+		# The same travel progress drives presentation only; room arrival stays in
+		# ExpeditionRules and the finished signal.
+		_layers[index].scroll_offset.x = -progress * size.x * [0.15, 0.4, 1.15][index]

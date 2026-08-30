@@ -1,6 +1,6 @@
 # Milestone 7 campaign contract
 
-`CampaignService` owns one in-memory `CampaignState` across scene changes. **New Game** replaces it; closing the application loses it. Disk checkpoints remain milestone 8.
+`CampaignService` owns one live `CampaignState` across scene changes. `SaveService` validates versioned disk checkpoints before replacing that live state. **New Game** replaces an existing campaign only after confirmation. See `SAVE_RULES.md`.
 
 Authored `ActorDefinition`, `ModuleDefinition`, item and ship Resources contain editable content only. `CampaignState`, `CrewState`, `ExpeditionState`, inventory stacks and room records contain mutable state. Campaign and combat rules have no scene, animation or sound dependency.
 
